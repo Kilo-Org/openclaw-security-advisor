@@ -1,0 +1,113 @@
+# AGENTS.md
+
+`@kilocode/openclaw-security-advisor` is an OpenClaw plugin that runs a local
+`openclaw security audit`, sends it to the KiloCode Security Advisor API, and
+renders the returned markdown report inline in chat.
+
+- The default branch is `main`.
+- Releases are gated on manual `workflow_dispatch` — never publish from a push trigger.
+- All commits must be signed by the human user. Do not create commits yourself.
+
+## Build, test, lint
+
+- **Typecheck**: `bun run typecheck`
+- **Test**: `bun test`
+- **Format check**: `bun run format:check`
+- **Format (auto-fix)**: `bun run format`
+- **Version resolution (dry-run)**: `KILO_VERSION=0.1.0-beta.2 KILO_CHANNEL=beta bun script/version.ts`
+
+CI enforces all three (typecheck, test, format:check) on every push and PR.
+Run them locally before asking the user to commit.
+
+## Changelog
+
+**`CHANGELOG.md` is maintained by hand. Update it in every change that a user
+would notice.** There is no changesets tool; the file is the source of truth.
+
+When making a code change:
+
+1. Add an entry under the `## [Unreleased]` section at the top of `CHANGELOG.md`.
+2. Use the Keep a Changelog subsection headings: `### Added`, `### Changed`,
+   `### Deprecated`, `### Removed`, `### Fixed`, `### Security`.
+3. Write the entry from the user's point of view — what they'll see, not
+   which file changed.
+4. Skip changes that don't affect users: refactors, test-only edits, CI-only
+   edits, internal doc updates. When in doubt, add it; noise is cheaper than
+   missing entries.
+
+When cutting a release:
+
+1. Move everything under `## [Unreleased]` into a new `## [x.y.z] - YYYY-MM-DD`
+   section.
+2. Leave the empty `## [Unreleased]` heading in place for future entries.
+3. Add a new compare-link at the bottom of the file.
+4. Commit the changelog update alongside the version bump.
+
+The `files` array in `package.json` includes `CHANGELOG.md`, so it ships in
+the published tarball.
+
+## Release flow
+
+Releases are triggered manually from GitHub Actions → `publish` workflow →
+"Run workflow". Two common paths:
+
+- **Explicit version (today's path)**: dispatch with `version=0.1.0-beta.2`,
+  `channel=beta`, leave bump blank. Use this for pre-release / beta / rc cuts.
+- **Auto-bump stable**: dispatch with `bump=patch|minor|major`, leave version
+  blank, leave channel blank. CI queries the highest existing `vX.Y.Z` tag on
+  the repo, bumps it, publishes to the `latest` npm dist-tag.
+
+`script/version.ts` handles both. See the top-of-file docstring for full env
+var semantics. The workflow fails fast if the target tag already exists on
+GitHub.
+
+### Branch protection and the release commit
+
+The publish workflow's final step pushes a `release: vX.Y.Z` commit + tag
+directly to `main` as `github-actions[bot]`, using the default `GITHUB_TOKEN`.
+
+Once branch protection / repository rulesets are enabled on `main`, the
+`github-actions[bot]` actor **must be added to the ruleset's bypass actors
+list**, otherwise the release workflow will fail at the push step _after_
+`npm publish` has already succeeded — leaving npm and GitHub out of sync.
+
+This is a stopgap. The long-term plan is to adopt the same `kilo-maintainer`
+GitHub App pattern used by the kilocode monorepo
+(`kilocode/.github/actions/setup-git-committer/action.yml`), which signs
+release commits as the App and has explicit bypass permissions. That
+migration requires Kilo-Org admin access to install the App on this repo
+and configure secrets, so it's deferred until an org admin is available.
+
+Until then, release commits:
+
+- are authored by `github-actions[bot]`
+- are unsigned
+- bypass branch protection via the ruleset allowlist (not via an App token)
+
+## Code layout
+
+- `index.ts` — plugin entry point; registers `/security-checkup` command and
+  `kilocode_security_advisor` tool; shared `runSecurityAdvisorFlow` handles
+  all auth paths (env token, saved token, pending device auth, new device auth).
+- `src/audit.ts` — runs `openclaw security audit --json`, parses + validates
+  output, fetches public IP.
+- `src/client.ts` — HTTP client for the Security Advisor API; throws
+  `AuthExpiredError` on 401.
+- `src/platform.ts` — detects `kiloclaw` vs `openclaw`. Kept separate from
+  `audit.ts` so the plugin loader's "env read + network send" security
+  heuristic doesn't flag the combined file.
+- `src/auth/device-auth.ts` — `startDeviceAuth` + `pollDeviceAuth` helpers.
+- `src/auth/token-store.ts` — persists auth token to
+  `~/.openclaw/secrets/openclaw-security-advisor-auth-token` (mode 600) and
+  patches `openclaw.json` with a `SecretRef`. Also manages the pending
+  device-auth code file. `patchConfig` is covered by unit tests.
+
+## Testing
+
+Tests live under `test/` and use `bun test`. `bunfig.toml` preloads
+`test/preload.ts`, which aliases the SDK virtual path
+`openclaw/plugin-sdk/zod` to the real `zod` devDep so schemas can be imported
+in a non-plugin-host runtime.
+
+Add tests for new pure functions. Filesystem + network code is harder to test
+and currently relies on the end-to-end docker loop described in the README.

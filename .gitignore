@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tgz
+
+# Local editor / agent state. Contributors using Claude Code, Cursor, or
+# similar tools get a per-machine settings file under .claude/. Ignore
+# the whole directory so nobody accidentally commits their local prefs
+# (or anything sensitive a tool may stash there) to a public repo.
+.claude/
+
+# Explicitly un-ignore the token-store source and its test file.
+# Contributors often have a global gitignore rule like `*token*` to
+# prevent accidentally committing credential files, which would
+# otherwise hide these legitimate source files. These exceptions keep
+# them visible to git regardless of the developer's global ignore rules.
+!src/auth/token-store.ts
+!test/token-store.test.ts
