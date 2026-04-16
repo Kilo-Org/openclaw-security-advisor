@@ -69,9 +69,10 @@ jobs:
       - name: Format check
         run: bun run format:check
 
-      # Fail fast on bad/missing NPM_TOKEN before any side effects
-      # (version.ts writes to package.json, network calls to GH, etc.)
-      # Surfaces auth issues in ~2s instead of mid-publish.
+      # npm whoami does NOT support OIDC trusted publishing — it only
+      # works with a static token. We keep NODE_AUTH_TOKEN here so this
+      # pre-publish sanity check still works. The actual publish step
+      # authenticates via OIDC (no token needed).
       - name: Verify npm auth
         run: npm whoami --registry=https://registry.npmjs.org/
         env:
@@ -107,11 +108,15 @@ jobs:
       #   recovery handler prints the exact manual recovery commands.
       # ============================================================
 
+      # Authentication for npm publish uses OIDC trusted publishing —
+      # no NODE_AUTH_TOKEN needed. npm CLI auto-detects the OIDC
+      # environment when id-token: write is set and no token is present.
+      # Configured on npmjs.com under package settings → Trusted Publishers.
+      # Requires npm CLI v11.5.1+ and Node 22.14.0+.
       - name: Publish to npm
         id: publish
         run: bun script/publish.ts
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
           KILO_CHANNEL: ${{ steps.version.outputs.channel }}
 
@@ -155,6 +160,9 @@ jobs:
       #
       # Like the verify step above, this is INFORMATIONAL only —
       # it never fails the workflow and never blocks tag/release.
+      # npm dist-tag add is a write operation NOT covered by OIDC
+      # trusted publishing (OIDC only covers npm publish). Still
+      # needs the static token.
       - name: Reconcile latest dist-tag (dev publishes)
         if: steps.publish.outcome == 'success' && steps.version.outputs.channel == 'dev'
         env:
