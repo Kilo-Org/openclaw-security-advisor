@@ -48,7 +48,7 @@ try {
   if (!tarball) {
     throw new Error("bun pm pack did not emit a tarball filename");
   }
-  await $`npm publish ${tarball} --tag ${channel} --access public --provenance`;
+  await $`npm publish ${tarball} --tag ${channel} --access public --provenance --dry-run`;
 } finally {
   // Always restore, even if publish fails.
   await Bun.write("package.json", original);
