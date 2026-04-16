@@ -125,11 +125,6 @@ connection. Then run `/security-checkup` again. The plugin will pick
 up the approval, persist your auth token, run the checkup, and return
 the report in the same response.
 
-> **Note:** after the token is saved, OpenClaw briefly reloads to apply
-> the new credential. You'll see a short connection blip in the chat
-> UI. This is expected and only happens on first auth. Subsequent
-> checkups run instantly without any reload.
-
 For every run after the first, no auth prompt appears. The saved token
 is reused automatically.
 

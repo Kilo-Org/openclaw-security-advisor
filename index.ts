@@ -294,6 +294,26 @@ export default definePluginEntry({
   name: "OpenClaw Security Advisor",
   description:
     "Run a security checkup of your OpenClaw instance and get an expert analysis report from KiloCode.",
+  // The gateway reload planner classifies any change under `plugins.*`
+  // as `kind: "restart"` by default. writeStoredToken() patches
+  // plugins.entries.openclaw-security-advisor.config.authToken with a
+  // SecretRef after device auth, which would force a full gateway
+  // restart on first-time token capture. Plugin-registered reload
+  // rules are evaluated before the base rules (first-match wins), so
+  // declaring just the authToken path as a noop shadows the base
+  // restart rule for that one field without affecting anything else.
+  //
+  // Scope is intentionally narrow — only `.config.authToken`, NOT the
+  // full `.config` subtree. `apiBaseUrl` is captured as a snapshot in
+  // register() (see `pluginConfig` below), so runtime updates to it
+  // still need to fall through to the base `plugins.* → restart` rule
+  // to take effect. The plugin reads the token directly from disk via
+  // readTokenFromFile() on every invocation, so authToken noop is safe.
+  reload: {
+    noopPrefixes: [
+      "plugins.entries.openclaw-security-advisor.config.authToken",
+    ],
+  },
   // The SDK's OpenClawPluginApi type is large and internal. We narrow
   // to our own structural PluginApi (declared above) immediately on
   // entry so everything inside this function is strongly typed.
