@@ -7,5 +7,5 @@
  * side of that check.
  */
 export function detectPlatform(): "kiloclaw" | "openclaw" {
-  return process.env.KILOCLAW_INTERNAL_API_SECRET ? "kiloclaw" : "openclaw";
+  return process.env.KILOCODE_FEATURE === "kiloclaw" ? "kiloclaw" : "openclaw";
 }
