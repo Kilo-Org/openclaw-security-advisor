@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- First-time device auth no longer triggers a brief gateway restart after the token is captured. The plugin now registers `reload.noopPrefixes` for its own config subtree, so the SecretRef patch written to `openclaw.json` after device auth is classified as a noop by the gateway reload planner instead of falling through to the default `plugins.* → restart` rule. The security checkup report is returned in the same response with no connection interruption.
 - Release workflow: consolidated post-publish git/GitHub operations into a single atomic step with retries, eliminating a race condition where the version bump commit and tag could be pushed separately. Registry verification is now informational-only and never blocks tag/release steps.
 - Release workflow: added a `Reconcile latest dist-tag` step that automatically repoints `npm dist-tags.latest` back to the highest stable version after a dev publish, preventing npm's first-publish auto-assign behavior from routing plain `npm install` users to a prerelease.
 

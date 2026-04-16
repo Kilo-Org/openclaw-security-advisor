@@ -53,9 +53,16 @@ async function ensureSecretsDir(): Promise<void> {
  * 2. Register a file-based SecretRef provider in config
  * 3. Point the plugin authToken config at that provider
  *
- * This triggers one gateway restart. On restart, OpenClaw resolves the
- * SecretRef → api.pluginConfig.authToken = the token string, available
- * in the plugin closure forever after.
+ * The config write does NOT trigger a gateway restart: the plugin
+ * declares `reload.noopPrefixes` for `plugins.entries.<id>.config` in
+ * index.ts, which shadows the gateway reload planner's default
+ * `plugins.* → restart` rule for our own config subtree. The plugin
+ * reads the token directly from the secrets file via
+ * readTokenFromFile() on every invocation, so no hot-resolve of
+ * api.pluginConfig.authToken is needed — the SecretRef in
+ * openclaw.json exists for discoverability (so operators inspecting
+ * config can see where the token lives) and to align with openclaw's
+ * SecretRef direction.
  */
 export async function writeStoredToken(
   api: TokenStoreApi,

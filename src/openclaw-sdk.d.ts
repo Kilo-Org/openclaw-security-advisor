@@ -15,6 +15,20 @@
 
 declare module "openclaw/plugin-sdk/plugin-entry" {
   /**
+   * Subset of the SDK's OpenClawPluginReloadRegistration. Entries here let a
+   * plugin override the gateway reload planner's default classification for
+   * specific config prefixes. First-match wins, and plugin-registered rules
+   * are evaluated before the base `plugins.* -> restart` rule, so declaring
+   * `plugins.entries.<id>.config` here overrides the base restart for our
+   * own config subtree.
+   */
+  export type PluginReloadRegistration = {
+    restartPrefixes?: string[];
+    hotPrefixes?: string[];
+    noopPrefixes?: string[];
+  };
+
+  /**
    * Register a plugin with the OpenClaw runtime. The `register` callback
    * receives a runtime-provided plugin API object. The SDK's concrete
    * OpenClawPluginApi type is internal; we narrow it to our own structural
@@ -24,6 +38,7 @@ declare module "openclaw/plugin-sdk/plugin-entry" {
     id: string;
     name: string;
     description: string;
+    reload?: PluginReloadRegistration;
     register: (api: any) => void;
   }): unknown;
 }
