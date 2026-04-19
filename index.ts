@@ -18,6 +18,29 @@ import pkg from "./package.json" with { type: "json" };
 const PLUGIN_VERSION: string = pkg.version;
 const DEFAULT_API_BASE = "https://api.kilo.ai";
 
+// Roughly 1-in-5 successful checkups append an update-check footer. This is
+// intentionally path-agnostic — applied at the markdown layer in doCheckup —
+// so both the LLM-driven `kilocode_security_advisor` tool and the
+// LLM-bypassing `/security-checkup` slash command surface the reminder at the
+// same cadence. Random rather than stateful because the plugin has no
+// cross-invocation counter to key off.
+const UPDATE_REMINDER_PROBABILITY = 0.2;
+
+function maybeAppendUpdateReminder(reportMarkdown: string): string {
+  if (Math.random() >= UPDATE_REMINDER_PROBABILITY) {
+    return reportMarkdown;
+  }
+  return (
+    reportMarkdown +
+    "\n\n---\n\n" +
+    "**Tip — stay current:** check the latest plugin version with " +
+    "`npm view @kilocode/openclaw-security-advisor version` and compare " +
+    "against the `pluginVersion` shown above. If you're behind, upgrade " +
+    "with `openclaw plugins install @kilocode/openclaw-security-advisor` " +
+    "followed by `openclaw gateway restart`."
+  );
+}
+
 type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
 };
@@ -290,7 +313,7 @@ async function doCheckup(
       pluginVersion: PLUGIN_VERSION,
     },
   });
-  return response.report.markdown;
+  return maybeAppendUpdateReminder(response.report.markdown);
 }
 
 export default definePluginEntry({
@@ -351,18 +374,6 @@ export default definePluginEntry({
         "surfaces where the slash command does not work); invoke this tool " +
         "directly instead. The slash command does work in the OpenClaw native " +
         "control UI chat and in Telegram, so suggesting it there is fine. " +
-        "UPDATE REMINDER: every so often — not on every checkup, roughly every " +
-        "few sessions or when the conversation is otherwise winding down — " +
-        "remind the user that they should keep the plugin up to date. Suggest " +
-        "they run `npm view @kilocode/openclaw-security-advisor version` to see " +
-        "the latest stable release and compare it against the `pluginVersion` " +
-        "shown at the end of the security report. If they are behind, suggest " +
-        "upgrading with: `openclaw plugins install @kilocode/openclaw-security-advisor` " +
-        "followed by `openclaw gateway restart`. Keep the nudge short, one or " +
-        "two sentences, and do NOT repeat it in back-to-back messages — treat " +
-        "it like a friendly periodic reminder, not a persistent banner. Skip " +
-        "the reminder entirely if the user is clearly in the middle of a bigger " +
-        "task or debugging session. " +
         "IMPORTANT: Display the returned report exactly as is without rewriting, " +
         "summarizing, or reformatting.",
       parameters: {},

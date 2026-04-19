@@ -62,10 +62,13 @@ openclaw plugins install @kilocode/openclaw-security-advisor
 openclaw gateway restart
 ```
 
-The agent behind `/security-checkup` and the natural-language invocation
-will occasionally nudge you to run this check — the nudge is a gentle
-periodic reminder, not every run. Security advice improves as the plugin
-ships new audit signals, so staying current is worthwhile.
+Your security checkup report will occasionally include an inline
+"stay current" tip at the bottom with these same commands — a gentle
+periodic nudge, not every run. The reminder is appended to the report
+markdown itself, so it appears on both invocation paths (the
+`/security-checkup` slash command and the natural-language
+`kilocode_security_advisor` tool). Security advice improves as the
+plugin ships new audit signals, so staying current is worthwhile.
 
 ---
 

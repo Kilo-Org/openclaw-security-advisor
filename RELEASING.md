@@ -31,8 +31,21 @@ refs/heads/main — Changes must be made through a pull request`. This is
 >    gh release create vX.Y.Z \
 >      --repo Kilo-Org/openclaw-security-advisor \
 >      --title vX.Y.Z \
->      --generate-notes
+>      --generate-notes \
+>      --verify-tag
 >    ```
+>    `--verify-tag` makes `gh` fail fast if the tag isn't already on the
+>    remote, instead of silently minting a fresh tag at the current
+>    `main` HEAD (which can point the release at code that was never
+>    published to npm). If `gh` errors out because the tag is missing,
+>    push the tag to the commit that actually got published first
+>    (check the `Publish to npm` step's logs in the failed workflow run
+>    for the commit SHA):
+>    ```bash
+>    git tag vX.Y.Z <sha-that-was-published>
+>    git push origin vX.Y.Z
+>    ```
+>    then re-run the `gh release create` command above.
 > 4. Leave `main`'s `package.json` alone. `script/version.ts` computes the
 >    next version from git tags, not from `package.json`, so main staying
 >    at a previous version is cosmetic, not load-bearing.
