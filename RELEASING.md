@@ -38,14 +38,18 @@ refs/heads/main — Changes must be made through a pull request`. This is
 >    remote, instead of silently minting a fresh tag at the current
 >    `main` HEAD (which can point the release at code that was never
 >    published to npm). If `gh` errors out because the tag is missing,
->    push the tag to the commit that actually got published first
->    (check the `Publish to npm` step's logs in the failed workflow run
->    for the commit SHA):
+>    push the tag to the commit that actually got published first. The
+>    commit SHA is echoed in the `Tag and release (post-publish)` step's
+>    log as `::notice::Built local commit + tag vX.Y.Z (<sha>)` — that's
+>    the SHA the tag should point at. The workflow's
+>    `Print recovery instructions on partial failure` step also prints
+>    the full set of recovery commands inline in the failed run's logs,
+>    so you can copy them from there instead of reconstructing by hand.
 >    ```bash
 >    git tag vX.Y.Z <sha-that-was-published>
 >    git push origin vX.Y.Z
 >    ```
->    then re-run the `gh release create` command above.
+>    Then re-run the `gh release create` command above.
 > 4. Leave `main`'s `package.json` alone. `script/version.ts` computes the
 >    next version from git tags, not from `package.json`, so main staying
 >    at a previous version is cosmetic, not load-bearing.
