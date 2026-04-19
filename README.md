@@ -46,6 +46,27 @@ You can also install an exact version directly:
 openclaw plugins install @kilocode/openclaw-security-advisor@0.1.0
 ```
 
+### Staying up to date
+
+New versions ship regularly. To check the latest published stable:
+
+```bash
+npm view @kilocode/openclaw-security-advisor version
+```
+
+Compare that against the `pluginVersion` line at the end of any security
+checkup report. To upgrade:
+
+```bash
+openclaw plugins install @kilocode/openclaw-security-advisor
+openclaw gateway restart
+```
+
+The agent behind `/security-checkup` and the natural-language invocation
+will occasionally nudge you to run this check — the nudge is a gentle
+periodic reminder, not every run. Security advice improves as the plugin
+ships new audit signals, so staying current is worthwhile.
+
 ---
 
 ## Usage

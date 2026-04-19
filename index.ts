@@ -351,6 +351,18 @@ export default definePluginEntry({
         "surfaces where the slash command does not work); invoke this tool " +
         "directly instead. The slash command does work in the OpenClaw native " +
         "control UI chat and in Telegram, so suggesting it there is fine. " +
+        "UPDATE REMINDER: every so often — not on every checkup, roughly every " +
+        "few sessions or when the conversation is otherwise winding down — " +
+        "remind the user that they should keep the plugin up to date. Suggest " +
+        "they run `npm view @kilocode/openclaw-security-advisor version` to see " +
+        "the latest stable release and compare it against the `pluginVersion` " +
+        "shown at the end of the security report. If they are behind, suggest " +
+        "upgrading with: `openclaw plugins install @kilocode/openclaw-security-advisor` " +
+        "followed by `openclaw gateway restart`. Keep the nudge short, one or " +
+        "two sentences, and do NOT repeat it in back-to-back messages — treat " +
+        "it like a friendly periodic reminder, not a persistent banner. Skip " +
+        "the reminder entirely if the user is clearly in the middle of a bigger " +
+        "task or debugging session. " +
         "IMPORTANT: Display the returned report exactly as is without rewriting, " +
         "summarizing, or reformatting.",
       parameters: {},
