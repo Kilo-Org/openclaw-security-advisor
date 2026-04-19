@@ -8,25 +8,23 @@ Every release is a manual `workflow_dispatch`.
 > the `main` branch ruleset's bypass list. As a result, **every stable
 > (`channel=latest`) publish run will fail at the "Tag and release
 > (post-publish)" step** with `GH013: Repository rule violations found for
-refs/heads/main — Changes must be made through a pull request`. This is
-> expected today; the failure mode is the one documented in
-> [Scenario 4](#scenario-4-publish-succeeded-but-commit--tag-push-failed)
-> below.
+refs/heads/main — Changes must be made through a pull request`.
 >
-> **What to do after a failed stable run:**
+> **Recovery after a failed stable run:**
 >
-> 1. Don't re-run the workflow. `npm publish` already succeeded and the
->    version is live on the registry. The git tag `vX.Y.Z` will typically
->    have landed too (tags aren't covered by the branch ruleset), even
->    though main's push was rejected.
-> 2. Check what's actually missing:
+> 1. Check what actually landed on origin:
+>
 >    ```bash
 >    git fetch origin --tags
->    git ls-remote --tags origin "vX.Y.Z"                              # is tag there?
->    gh release view "vX.Y.Z" --repo Kilo-Org/openclaw-security-advisor # is release there?
+>    git ls-remote --tags origin "vX.Y.Z"                                 # tag?
+>    gh release view "vX.Y.Z" --repo Kilo-Org/openclaw-security-advisor   # release?
 >    ```
-> 3. Create the GitHub release manually — this is the only step that
->    reliably needs to be done by hand:
+>
+> 2. **If the tag exists and only the GitHub release is missing** (the
+>    typical outcome — tags aren't covered by the branch ruleset and
+>    usually land even when the `main` push is rejected), create the
+>    release against the existing tag:
+>
 >    ```bash
 >    gh release create vX.Y.Z \
 >      --repo Kilo-Org/openclaw-security-advisor \
@@ -34,24 +32,22 @@ refs/heads/main — Changes must be made through a pull request`. This is
 >      --generate-notes \
 >      --verify-tag
 >    ```
->    `--verify-tag` makes `gh` fail fast if the tag isn't already on the
->    remote, instead of silently minting a fresh tag at the current
->    `main` HEAD (which can point the release at code that was never
->    published to npm). If `gh` errors out because the tag is missing,
->    **don't try to tag the runner-side SHA** from the failed workflow
->    log — that commit was created inside the Actions runner and, since
->    the push was rejected, it does not exist in your local clone.
->    Instead, reconstruct the release commit and tag locally using the
->    full sequence in
+>
+>    `--verify-tag` makes `gh` fail fast if the tag is missing instead of
+>    silently creating a new one at current `main` HEAD. That's the whole
+>    recovery — no other steps needed.
+>
+> 3. **If the tag is also missing** (rare), follow
 >    [Scenario 4](#scenario-4-publish-succeeded-but-commit--tag-push-failed)
->    below (bump `package.json` to the published version, commit, tag,
->    push), then re-run the `gh release create` command above. The
->    workflow's `Print recovery instructions on partial failure` step
->    also prints the same sequence inline in the failed run's logs as a
->    copy-paste block.
-> 4. Leave `main`'s `package.json` alone. `script/version.ts` computes the
->    next version from git tags, not from `package.json`, so main staying
->    at a previous version is cosmetic, not load-bearing.
+>    below. It rebuilds the release commit locally (you can't tag the
+>    runner-side SHA; that commit lived only in the Actions runner),
+>    tags, pushes, then creates the release. The workflow's
+>    `Print recovery instructions on partial failure` step also prints
+>    this full sequence inline in the failed run's logs for copy-paste.
+>
+> After step 2 (common case), `main`'s `package.json` will be one version
+> behind. Leave it alone — `script/version.ts` computes the next version
+> from git tags, not from `package.json`, so the drift is cosmetic.
 >
 > This banner can be removed once the ruleset bypass is configured (see
 > [Branch protection](#branch-protection)) or the workflow is refactored
