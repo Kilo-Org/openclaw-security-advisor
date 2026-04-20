@@ -55,12 +55,18 @@ export type DeviceAuthPollResult =
  * Create a device auth request and return the code + URL for the user to visit.
  * Call this once, show the result to the user, then poll with pollDeviceAuth().
  *
- * Note: the server returns a generic `/device-auth?code=...` URL in `verificationUrl`,
- * but we construct our own landing URL pointing at `/openclaw-advisor?code=...`.
- * The cloud side uses the path prefix to attribute Security Advisor signups and
- * layer a per-product signup bonus on top of the standard welcome credits.
- * Old plugin builds keep working against the server — they just land on the generic
- * URL and don't qualify for the bonus, which is the intended behavior.
+ * The server returns a generic `/device-auth?code=...` URL in `verificationUrl`,
+ * built from APP_URL (the user-facing host, e.g. https://app.kilo.ai in prod).
+ * We rewrite only the PATH to `/openclaw-advisor?code=...`, keeping the origin
+ * authoritative. Rebuilding the URL from `apiBase` would be wrong in production,
+ * where the API host (https://api.kilo.ai) and the app host (https://app.kilo.ai)
+ * are different — the user needs the app host to land on the signup flow.
+ *
+ * The cloud side uses the `/openclaw-advisor` path prefix to attribute Security
+ * Advisor signups and layer a per-product signup bonus on top of the standard
+ * welcome credits. Old plugin builds keep working against the server — they just
+ * land on the generic `/device-auth` URL and don't qualify for the bonus, which
+ * is the intended behavior.
  */
 export async function startDeviceAuth(
   apiBase: string,
@@ -76,10 +82,12 @@ export async function startDeviceAuth(
     );
   }
   const data = (await resp.json()) as DeviceAuthInitResponse;
+  const advisorUrl = new URL(data.verificationUrl);
+  advisorUrl.pathname = "/openclaw-advisor";
   return {
     kind: "started",
     code: data.code,
-    verificationUrl: `${apiBase}/openclaw-advisor?code=${encodeURIComponent(data.code)}`,
+    verificationUrl: advisorUrl.toString(),
     expiresIn: data.expiresIn,
   };
 }

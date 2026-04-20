@@ -24,8 +24,7 @@ function stubFetch(response: unknown, { ok = true, status = 200 } = {}): void {
 }
 
 describe("startDeviceAuth", () => {
-  test("constructs the openclaw-advisor verification URL from the returned code, ignoring the server-returned verificationUrl", async () => {
-    // Server returns a legacy /device-auth?code=... URL — plugin should ignore it.
+  test("rewrites the path on the server-provided URL to /openclaw-advisor", async () => {
     stubFetch({
       code: "ABCD-1234",
       verificationUrl: "https://app.kilo.ai/device-auth?code=ABCD-1234",
@@ -42,7 +41,24 @@ describe("startDeviceAuth", () => {
     expect(result.expiresIn).toBe(600);
   });
 
-  test("uses the caller-provided apiBase for the verification URL (dev loop)", async () => {
+  test("preserves the server-provided origin, not apiBase, when they differ (prod)", async () => {
+    // Regression: in production, apiBase is the API host (api.kilo.ai) but
+    // the server builds verificationUrl from APP_URL (app.kilo.ai). Rebuilding
+    // the link from apiBase would send users to a nonexistent endpoint.
+    stubFetch({
+      code: "QWER-7890",
+      verificationUrl: "https://app.kilo.ai/device-auth?code=QWER-7890",
+      expiresIn: 600,
+    });
+
+    const result = await startDeviceAuth("https://api.kilo.ai");
+
+    expect(result.verificationUrl).toBe(
+      "https://app.kilo.ai/openclaw-advisor?code=QWER-7890",
+    );
+  });
+
+  test("preserves the dev-loop origin (host.docker.internal / localhost)", async () => {
     stubFetch({
       code: "WXYZ-5678",
       verificationUrl:
@@ -57,19 +73,20 @@ describe("startDeviceAuth", () => {
     );
   });
 
-  test("url-encodes the code to defend against unexpected server responses", async () => {
-    // Defense-in-depth: even if the server returned a malformed code, we must
-    // not inject unescaped query chars into the verification URL.
+  test("preserves the ?code= query verbatim from the server-provided URL", async () => {
+    // The server is the source of truth for the query string. We only swap
+    // the pathname; we never reconstruct the query from the bare `code` field.
     stubFetch({
-      code: "A&B=C D",
-      verificationUrl: "ignored",
+      code: "UVWX-9999",
+      verificationUrl:
+        "https://app.kilo.ai/device-auth?code=UVWX-9999&state=extra",
       expiresIn: 600,
     });
 
-    const result = await startDeviceAuth("https://app.kilo.ai");
+    const result = await startDeviceAuth("https://api.kilo.ai");
 
     expect(result.verificationUrl).toBe(
-      "https://app.kilo.ai/openclaw-advisor?code=A%26B%3DC%20D",
+      "https://app.kilo.ai/openclaw-advisor?code=UVWX-9999&state=extra",
     );
   });
 
