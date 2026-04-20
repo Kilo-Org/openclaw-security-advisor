@@ -46,6 +46,30 @@ You can also install an exact version directly:
 openclaw plugins install @kilocode/openclaw-security-advisor@0.1.0
 ```
 
+### Staying up to date
+
+New versions ship regularly. To check the latest published stable:
+
+```bash
+npm view @kilocode/openclaw-security-advisor version
+```
+
+Compare that against the `pluginVersion` line at the end of any security
+checkup report. To upgrade:
+
+```bash
+openclaw plugins install @kilocode/openclaw-security-advisor
+openclaw gateway restart
+```
+
+Your security checkup report will occasionally include an inline
+"stay current" tip at the bottom with these same commands — a gentle
+periodic nudge, not every run. The reminder is appended to the report
+markdown itself, so it appears on both invocation paths (the
+`/security-checkup` slash command and the natural-language
+`kilocode_security_advisor` tool). Security advice improves as the
+plugin ships new audit signals, so staying current is worthwhile.
+
 ---
 
 ## Usage
@@ -64,6 +88,13 @@ Type it in chat:
 This is a slash command. It runs the plugin directly and renders the
 full report, bypassing the agent's summarization layer entirely. **Use
 this for guaranteed verbatim output.**
+
+> **Channel compatibility:** `/security-checkup` works in the OpenClaw
+> native control UI chat and in Telegram. It does **not** currently work
+> in Kilo Chat or Slack — those surfaces don't route slash commands to
+> OpenClaw plugins. In Kilo Chat and Slack, use the natural-language
+> invocation below instead; the agent will call the
+> `kilocode_security_advisor` tool directly.
 
 ### Natural language
 
@@ -84,8 +115,9 @@ showing it to you. This works well on capable models (GPT-4o, Claude
 Sonnet, Gemini Pro) but small summarizing models (e.g. GPT-4.1-nano,
 Haiku) will often paraphrase the report down to a few sentences. **If
 you're running a small or summarizing model, use the
-`/security-checkup` slash command instead.** It renders the full
-report regardless of which model is configured.
+`/security-checkup` slash command instead** (where supported — see
+channel compatibility above). It renders the full report regardless of
+which model is configured.
 
 ---
 
