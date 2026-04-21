@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Plugin now forwards the active chat surface to the server as `source.channel` on every checkup request. The slash-command path reads `PluginCommandContext.channel` and the tool/natural-language path reads `OpenClawPluginToolContext.messageChannel` (tool registration converted to factory form so the ctx is accessible at tool-instantiation and closed over by `execute()`). Server uses this hint to pick a channel-appropriate format (e.g. collapsible `<details>` blocks on capable UIs, flat markdown on Telegram/Slack). Backward-compatible with older servers: the field is optional in the client payload and servers that don't declare it in their zod schema silently drop it at parse time (no coordinated release required).
+
+### Removed
+
+- `maybeAppendUpdateReminder()` and the plugin-side update-reminder footer introduced in 0.1.3. The footer was presentation logic in the wrong layer — it forced a plugin release to change cadence, copy, or enablement, and only the plugin could decide when to show it. The reminder moves to the server (owner of all report rendering), where it can key off the reported `source.pluginVersion` to show a reminder only when the client is actually behind, and where admins can edit copy/cadence via the content catalog without a plugin release.
+
 ### Fixed
 
 - KiloClaw platform detection now uses four independent signals instead of relying on a single env var, so detection holds across KiloClaw deployments of varying age. `detectPlatform()` now walks (in order, short-circuiting on the first hit): (1) `plugins.entries.kiloclaw-customizer.enabled` in `openclaw.json`, (2) `plugins.load.paths` containing the kiloclaw customizer install path, (3) `process.env.KILOCLAW_SANDBOX_ID`, (4) `process.env.KILOCODE_FEATURE === "kiloclaw"`. The two config-side signals are written by the KiloClaw controller at boot and are present on every KiloClaw instance since the customizer plugin was introduced, so they catch older deployments that predate the env-var signals. Internal signature change: `detectPlatform()` now takes the loaded openclaw config so it can inspect the config-side signals.
