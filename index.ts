@@ -18,29 +18,6 @@ import pkg from "./package.json" with { type: "json" };
 const PLUGIN_VERSION: string = pkg.version;
 const DEFAULT_API_BASE = "https://api.kilo.ai";
 
-// Roughly 1-in-5 successful checkups append an update-check footer. This is
-// intentionally path-agnostic — applied at the markdown layer in doCheckup —
-// so both the LLM-driven `kilocode_security_advisor` tool and the
-// LLM-bypassing `/security-checkup` slash command surface the reminder at the
-// same cadence. Random rather than stateful because the plugin has no
-// cross-invocation counter to key off.
-const UPDATE_REMINDER_PROBABILITY = 0.2;
-
-function maybeAppendUpdateReminder(reportMarkdown: string): string {
-  if (Math.random() >= UPDATE_REMINDER_PROBABILITY) {
-    return reportMarkdown;
-  }
-  return (
-    reportMarkdown +
-    "\n\n---\n\n" +
-    "**Tip — stay current:** check the latest plugin version with " +
-    "`npm view @kilocode/openclaw-security-advisor version` and compare " +
-    "against the `pluginVersion` shown above. If you're behind, upgrade " +
-    "with `openclaw plugins install @kilocode/openclaw-security-advisor` " +
-    "followed by `openclaw gateway restart`."
-  );
-}
-
 type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
 };
@@ -56,11 +33,33 @@ type ToolRegistration = {
   execute: () => Promise<ToolResult>;
 };
 
+/**
+ * Minimal shape of the SDK's OpenClawPluginToolContext that we actually
+ * read. The full type lives in the SDK and is not re-exported to plugins;
+ * we only need the active chat surface (if any) to forward to the server
+ * for channel-aware report formatting. Declared structurally so we stay
+ * decoupled from internal SDK type evolution.
+ */
+type PluginToolContext = {
+  messageChannel?: string;
+};
+
+type ToolFactory = (ctx: PluginToolContext) => ToolRegistration;
+
+/**
+ * Minimal shape of the SDK's PluginCommandContext that we actually read.
+ * Same rationale as PluginToolContext — we only need the chat surface
+ * for the server-side formatter hint.
+ */
+type PluginCommandContext = {
+  channel?: string;
+};
+
 type CommandRegistration = {
   name: string;
   description: string;
   acceptsArgs: boolean;
-  handler: (ctx: unknown) => Promise<CommandResult>;
+  handler: (ctx: PluginCommandContext) => Promise<CommandResult>;
 };
 
 /**
@@ -76,9 +75,25 @@ type PluginApi = {
   runtime: {
     config: PluginRuntimeConfig;
   };
-  registerTool: (tool: ToolRegistration) => void;
+  // SDK accepts either a tool object or a factory that returns one. We
+  // use the factory form so we can capture `messageChannel` from the
+  // runtime-provided tool context at tool-creation time and forward it
+  // to the server on every invocation.
+  registerTool: (tool: ToolRegistration | ToolFactory) => void;
   registerCommand: (cmd: CommandRegistration) => void;
 };
+
+/**
+ * Coerce a chat-surface string from the SDK into the value we forward to
+ * the server. Trims, and treats empty-after-trim as "no channel known"
+ * so we don't send `source.channel: ""` and trigger server-side handling
+ * of an ambiguous signal.
+ */
+function normalizeChannel(raw: string | undefined): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
 
 function resolveEnvToken(): string | null {
   return process.env.KILOCODE_API_KEY ?? process.env.KILO_API_KEY ?? null;
@@ -114,9 +129,13 @@ function toolResult(content: string): ToolResult {
  * non-zero exit code) are already handled inside the flow and return
  * their own specific messages; this is the last-resort safety net.
  */
-async function runFlowSafe(api: PluginApi, apiBase: string): Promise<string> {
+async function runFlowSafe(
+  api: PluginApi,
+  apiBase: string,
+  channel: string | undefined,
+): Promise<string> {
   try {
-    return await runSecurityAdvisorFlow(api, apiBase);
+    return await runSecurityAdvisorFlow(api, apiBase, channel);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     api.logger.error?.(`security-advisor: unexpected failure: ${message}`);
@@ -138,6 +157,7 @@ async function runFlowSafe(api: PluginApi, apiBase: string): Promise<string> {
 async function runSecurityAdvisorFlow(
   api: PluginApi,
   apiBase: string,
+  channel: string | undefined,
 ): Promise<string> {
   // Path 0: user explicit config. If `plugins.entries.openclaw-security-advisor.config.authToken`
   // is set (as a plain string directly, or as a SecretRef resolved by
@@ -149,7 +169,7 @@ async function runSecurityAdvisorFlow(
   const configToken = api.pluginConfig?.authToken;
   if (typeof configToken === "string" && configToken.length > 0) {
     try {
-      return await doCheckup(api, apiBase, configToken);
+      return await doCheckup(api, apiBase, configToken, channel);
     } catch (err) {
       if (err instanceof AuthExpiredError) {
         return (
@@ -167,7 +187,7 @@ async function runSecurityAdvisorFlow(
   const envToken = resolveEnvToken();
   if (envToken) {
     try {
-      return await doCheckup(api, apiBase, envToken);
+      return await doCheckup(api, apiBase, envToken, channel);
     } catch (err) {
       if (err instanceof AuthExpiredError) {
         return (
@@ -187,7 +207,7 @@ async function runSecurityAdvisorFlow(
   const savedToken = await readTokenFromFile();
   if (savedToken) {
     try {
-      return await doCheckup(api, apiBase, savedToken);
+      return await doCheckup(api, apiBase, savedToken, channel);
     } catch (err) {
       if (!(err instanceof AuthExpiredError)) throw err;
       await clearStoredToken();
@@ -213,7 +233,7 @@ async function runSecurityAdvisorFlow(
       // subsequent invocations skip device auth and go straight to Path B.
       const reportMarkdown = await (async (): Promise<string> => {
         try {
-          return await doCheckup(api, apiBase, pollResult.token);
+          return await doCheckup(api, apiBase, pollResult.token, channel);
         } catch (err) {
           if (err instanceof AuthExpiredError) {
             // Edge case: server approved the token but immediately
@@ -296,6 +316,7 @@ async function doCheckup(
   api: PluginApi,
   apiBase: string,
   token: string,
+  channel: string | undefined,
 ): Promise<string> {
   const auditResult = await runAudit();
   if (!auditResult.ok) {
@@ -311,9 +332,13 @@ async function doCheckup(
       platform: detectPlatform(api.runtime.config.loadConfig()),
       method: "plugin",
       pluginVersion: PLUGIN_VERSION,
+      // Only include `channel` when we actually know it. Sending an empty
+      // string would force the server to special-case unknown-vs-absent;
+      // absent + zod's unknown-key strip on older servers are both safe.
+      ...(channel !== undefined ? { channel } : {}),
     },
   });
-  return maybeAppendUpdateReminder(response.report.markdown);
+  return response.report.markdown;
 }
 
 export default definePluginEntry({
@@ -356,7 +381,16 @@ export default definePluginEntry({
     // models (e.g. gpt-4.1-nano) may paraphrase the report instead of
     // displaying it verbatim. For those models, the slash command path
     // below is deterministic.
-    api.registerTool({
+    //
+    // Registered as a factory (`(ctx) => toolDef`) rather than a bare
+    // tool object so the SDK's OpenClawPluginToolContext is available.
+    // We read `ctx.messageChannel` once at tool-instantiation and close
+    // over it; every subsequent `execute()` forwards the same channel to
+    // the server for channel-aware report formatting. The factory is
+    // re-invoked per tool-collection event (session start, agent spawn),
+    // so long-running sessions that outlive a channel switch get the
+    // refreshed channel automatically.
+    api.registerTool((toolCtx: PluginToolContext) => ({
       name: "kilocode_security_advisor",
       description:
         "Run a comprehensive security checkup of this OpenClaw instance. " +
@@ -379,10 +413,11 @@ export default definePluginEntry({
       parameters: {},
       async execute() {
         const apiBase = resolveApiBase(pluginConfig);
-        const markdown = await runFlowSafe(api, apiBase);
+        const channel = normalizeChannel(toolCtx.messageChannel);
+        const markdown = await runFlowSafe(api, apiBase, channel);
         return toolResult(markdown);
       },
-    });
+    }));
 
     // Entry point 2: slash command for deterministic invocation that
     // bypasses the LLM. When the user types /security-checkup in a
@@ -394,9 +429,10 @@ export default definePluginEntry({
       description:
         "Run a KiloCode security checkup of this OpenClaw instance and display the full report.",
       acceptsArgs: false,
-      handler: async (_ctx: unknown) => {
+      handler: async (ctx: PluginCommandContext) => {
         const apiBase = resolveApiBase(pluginConfig);
-        const markdown = await runFlowSafe(api, apiBase);
+        const channel = normalizeChannel(ctx.channel);
+        const markdown = await runFlowSafe(api, apiBase, channel);
         return { text: markdown };
       },
     });

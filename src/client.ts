@@ -34,6 +34,17 @@ export interface SubmitAuditPayload {
     method: "plugin" | "api" | "webhook" | "cloud-agent";
     pluginVersion?: string;
     openclawVersion?: string;
+    /**
+     * Chat surface that invoked the plugin (e.g. "control-ui", "telegram",
+     * "slack", "discord", "kilocode-chat"). Sent when the plugin SDK exposes
+     * it — from `PluginCommandContext.channel` on the slash-command path and
+     * `OpenClawPluginToolContext.messageChannel` on the tool/natural-language
+     * path. The server uses this to pick a channel-appropriate format (e.g.
+     * collapsible `<details>` blocks on capable surfaces, flat markdown on
+     * Telegram/Slack). Older servers that don't know this field just drop
+     * it during zod parse — no coordinated release needed.
+     */
+    channel?: string;
   };
 }
 
