@@ -35,6 +35,16 @@ Device auth runs fresh on the new plugin — you'll be prompted to reconnect
 your KiloCode account on first use. Subsequent checkups are identical to
 what you got before the rename.
 
+> **If you had the old tool explicitly allow-listed in `tools.alsoAllow`,
+> update it.** The tool name changed from `kilocode_security_advisor` to
+> `kilocode_shell_security`. If your `openclaw.json` has an entry like
+> `tools.alsoAllow: ["kilocode_security_advisor"]`, replace it with
+> `kilocode_shell_security` or the new tool won't be offered to the LLM
+> for natural-language invocation (the `/shell-security` slash command
+> still works regardless). Check with
+> `openclaw config get tools.alsoAllow`. If you never set
+> `tools.alsoAllow` yourself, there's nothing to change.
+
 On first use, the plugin will walk you through a one-time device auth
 flow to connect your KiloCode account.
 
@@ -132,14 +142,24 @@ The agent will call the `kilocode_shell_security` tool and the report
 will appear in chat.
 
 **Heads up:** natural language invocation goes through your configured
-language model, which may rewrite or summarize the report before
-showing it to you. This works well on capable models (GPT-4o, Claude
-Sonnet, Gemini Pro) but small summarizing models (e.g. GPT-4.1-nano,
-Haiku) will often paraphrase the report down to a few sentences. **If
-you're running a small or summarizing model, use the
-`/shell-security` slash command instead** (where supported — see
-channel compatibility above). It renders the full report regardless of
-which model is configured.
+language model on two fronts — it has to pick the right tool from your
+natural-language request, and then render the tool's output. Small
+summarizing models (e.g. GPT-4.1-nano, Haiku) often fail on both:
+
+1. **Tool selection.** Asking "run the shell security plugin" on a
+   small model frequently results in the model claiming no such tool
+   exists, even when `kilocode_shell_security` is registered and
+   allow-listed. Capable models (GPT-4o, Claude Sonnet, Gemini Pro)
+   match reliably against the tool description.
+2. **Report rendering.** Even when the tool is invoked, small models
+   tend to paraphrase the markdown down to a few sentences instead of
+   rendering the full report verbatim.
+
+**If you're running a small or summarizing model, use the
+`/shell-security` slash command for deterministic invocation** (where
+supported — see channel compatibility above). The slash command
+bypasses the LLM entirely, so it doesn't need to pick the tool and
+can't paraphrase the report.
 
 ---
 

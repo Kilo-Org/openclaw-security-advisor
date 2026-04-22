@@ -391,16 +391,24 @@ export default definePluginEntry({
     api.registerTool((toolCtx: PluginToolContext) => ({
       name: "kilocode_shell_security",
       description:
-        "Run a comprehensive security checkup of this OpenClaw instance. " +
-        "USE THIS TOOL whenever the user asks to: check, audit, scan, review, or " +
-        "analyze OpenClaw security; run a 'security check', 'security checkup', " +
-        "'security audit', or 'security review'; or asks about security posture, " +
-        "misconfigurations, or hardening. " +
+        "Run the ShellSecurity checkup: a comprehensive security analysis " +
+        "of this OpenClaw agent-shell instance, returning an expert report " +
+        "from KiloCode cloud. " +
+        "USE THIS TOOL whenever the user asks to: " +
+        "run 'ShellSecurity', the 'shell security' plugin, 'shell-security', " +
+        "or the 'KiloCode shell security' / 'KiloCode security' tool; " +
+        "check, audit, scan, review, or analyze OpenClaw or agent-shell " +
+        "security; run a 'security check', 'security checkup', 'security " +
+        "audit', or 'security review'; ask about security posture, " +
+        "misconfigurations, or hardening of their OpenClaw / agent shell. " +
         "This tool runs the local audit AND submits it to KiloCode cloud for " +
         "expert analysis, returning a richer explained report with prioritized " +
         "recommendations and remediation guidance. " +
         "DO NOT run `openclaw security audit` via bash for these requests. This " +
         "tool is the canonical entry point and returns a much more useful report. " +
+        "DO NOT open an interactive shell, prompt the user for commands, or " +
+        "ask what security checks to run — this tool IS the whole plugin and " +
+        "it runs the full checkup itself with no arguments. " +
         "DO NOT suggest the user type `/shell-security` (or the legacy alias " +
         "`/security-checkup`) in channels that do not support OpenClaw slash " +
         "commands (Kilo Chat and Slack are the known surfaces where slash " +
