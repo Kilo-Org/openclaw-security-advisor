@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Plugin registration no longer spams "Registered …" info lines on
+  every call to `register()`. OpenClaw invokes `register(api)` once
+  per distinct `loadOpenClawPlugins` cache key (gateway startup,
+  provider discovery, metadata registry, web-fetch/web-search runtimes,
+  etc.), which produced ~44 redundant log lines per KiloClaw boot. A
+  module-scoped `registrationLogged` flag now gates the three info
+  lines so they fire at most once per process.
 - `getPublicIp()` now clears its 5-second abort timer on error paths as
   well as success, so repeated checkups on a flaky network don't leak
   dangling timeouts.
