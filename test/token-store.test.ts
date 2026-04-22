@@ -1,14 +1,13 @@
 import { describe, test, expect } from "bun:test";
 import { patchConfig } from "../src/auth/token-store";
 
-const TEST_PATH =
-  "/home/node/.openclaw/secrets/openclaw-security-advisor-auth-token";
+const TEST_PATH = "/home/node/.openclaw/secrets/shell-security-auth-token";
 
 function getAuthToken(cfg: unknown): unknown {
   const root = cfg as Record<string, unknown>;
   const plugins = root.plugins as Record<string, unknown>;
   const entries = plugins.entries as Record<string, unknown>;
-  const entry = entries["openclaw-security-advisor"] as Record<string, unknown>;
+  const entry = entries["shell-security"] as Record<string, unknown>;
   const config = entry.config as Record<string, unknown>;
   return config.authToken;
 }
@@ -17,7 +16,7 @@ function getProvider(cfg: unknown): unknown {
   const root = cfg as Record<string, unknown>;
   const secrets = root.secrets as Record<string, unknown>;
   const providers = secrets.providers as Record<string, unknown>;
-  return providers.kilocode_security_advisor;
+  return providers.kilocode_shell_security;
 }
 
 describe("patchConfig", () => {
@@ -30,7 +29,7 @@ describe("patchConfig", () => {
     });
     expect(getAuthToken(next)).toEqual({
       source: "file",
-      provider: "kilocode_security_advisor",
+      provider: "kilocode_shell_security",
       id: "value",
     });
   });
@@ -57,7 +56,7 @@ describe("patchConfig", () => {
     expect(entries["some-other-plugin"]).toEqual({
       config: { key: "value" },
     });
-    expect(entries["openclaw-security-advisor"]).toBeDefined();
+    expect(entries["shell-security"]).toBeDefined();
   });
 
   test("preserves unrelated secret providers", () => {
@@ -75,14 +74,14 @@ describe("patchConfig", () => {
       source: "env",
       path: "OTHER_TOKEN",
     });
-    expect(providers.kilocode_security_advisor).toBeDefined();
+    expect(providers.kilocode_shell_security).toBeDefined();
   });
 
   test("overwrites existing authToken for this plugin", () => {
     const cfg = {
       plugins: {
         entries: {
-          "openclaw-security-advisor": {
+          "shell-security": {
             config: {
               authToken: "stale-plain-string",
               apiBaseUrl: "http://host.docker.internal:3000",
@@ -94,17 +93,14 @@ describe("patchConfig", () => {
     const next = patchConfig(cfg, TEST_PATH);
     expect(getAuthToken(next)).toEqual({
       source: "file",
-      provider: "kilocode_security_advisor",
+      provider: "kilocode_shell_security",
       id: "value",
     });
     // apiBaseUrl should survive
     const root = next as Record<string, unknown>;
     const plugins = root.plugins as Record<string, unknown>;
     const entries = plugins.entries as Record<string, unknown>;
-    const entry = entries["openclaw-security-advisor"] as Record<
-      string,
-      unknown
-    >;
+    const entry = entries["shell-security"] as Record<string, unknown>;
     const config = entry.config as Record<string, unknown>;
     expect(config.apiBaseUrl).toBe("http://host.docker.internal:3000");
   });

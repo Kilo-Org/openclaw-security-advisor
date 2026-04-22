@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Version resolution for @kilocode/openclaw-security-advisor.
+ * Version resolution for @kilocode/shell-security.
  *
  * Two channels only:
  *   - `latest` — public stable releases. Versions are plain semver: 1.2.3.
@@ -49,7 +49,7 @@
 
 import { $ } from "bun";
 
-const NPM_PACKAGE = "@kilocode/openclaw-security-advisor";
+const NPM_PACKAGE = "@kilocode/shell-security";
 
 const env = {
   KILO_CHANNEL: process.env.KILO_CHANNEL,

@@ -82,7 +82,7 @@ Your security checkup report will occasionally include an inline
 "stay current" tip at the bottom with these same commands — a gentle
 periodic nudge, not every run. The reminder is appended to the report
 markdown itself, so it appears on both invocation paths (the
-`/security-checkup` slash command and the natural-language
+`/shell-security` slash command and the natural-language
 `kilocode_shell_security` tool). Security advice improves as the
 plugin ships new audit signals, so staying current is worthwhile.
 
@@ -93,24 +93,30 @@ plugin ships new audit signals, so staying current is worthwhile.
 The plugin exposes two entry points. They do the same thing; pick whichever
 fits your workflow.
 
-### `/security-checkup` (recommended)
+### `/shell-security` (recommended)
 
 Type it in chat:
 
 ```
-/security-checkup
+/shell-security
 ```
 
 This is a slash command. It runs the plugin directly and renders the
 full report, bypassing the agent's summarization layer entirely. **Use
 this for guaranteed verbatim output.**
 
-> **Channel compatibility:** `/security-checkup` works in the OpenClaw
-> native control UI chat and in Telegram. It does **not** currently work
-> in Kilo Chat or Slack — those surfaces don't route slash commands to
-> OpenClaw plugins. In Kilo Chat and Slack, use the natural-language
-> invocation below instead; the agent will call the
-> `kilocode_shell_security` tool directly.
+> **Legacy alias:** `/security-checkup` is also registered and works
+> identically. Existing users migrating from
+> `@kilocode/openclaw-security-advisor` can keep typing the command
+> they're used to.
+
+> **Channel compatibility:** `/shell-security` (and its
+> `/security-checkup` alias) work in the OpenClaw native control UI
+> chat and in Telegram. They do **not** currently work in Kilo Chat or
+> Slack — those surfaces don't route slash commands to OpenClaw plugins.
+> In Kilo Chat and Slack, use the natural-language invocation below
+> instead; the agent will call the `kilocode_shell_security` tool
+> directly.
 
 ### Natural language
 
@@ -131,7 +137,7 @@ showing it to you. This works well on capable models (GPT-4o, Claude
 Sonnet, Gemini Pro) but small summarizing models (e.g. GPT-4.1-nano,
 Haiku) will often paraphrase the report down to a few sentences. **If
 you're running a small or summarizing model, use the
-`/security-checkup` slash command instead** (where supported — see
+`/shell-security` slash command instead** (where supported — see
 channel compatibility above). It renders the full report regardless of
 which model is configured.
 
@@ -158,7 +164,7 @@ Once you've approved the connection, run the security checkup again.
 ```
 
 Open the URL, sign in (or create a free account), and approve the
-connection. Then run `/security-checkup` again. The plugin will pick
+connection. Then run `/shell-security` again. The plugin will pick
 up the approval, persist your auth token, run the checkup, and return
 the report in the same response.
 
@@ -228,7 +234,7 @@ over the default.
 
 **"Your KiloCode authentication has expired"**
 The plugin automatically clears expired tokens and reruns the device
-auth flow on the next invocation. Just run `/security-checkup` again.
+auth flow on the next invocation. Just run `/shell-security` again.
 
 **"Security analysis failed: Rate limit exceeded"**
 The KiloCode API rate limits security checkups per account. Wait a
@@ -236,7 +242,7 @@ little and try again.
 
 **Natural language invocation paraphrases the report**
 This is a limitation of small summarizing language models, not the
-plugin. Use `/security-checkup` (the slash command) to bypass the model
+plugin. Use `/shell-security` (the slash command) to bypass the model
 entirely and render the full report.
 
 **Plugin doesn't appear in `/plugins list`**

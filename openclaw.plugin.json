@@ -1,8 +1,11 @@
 {
-  "id": "openclaw-security-advisor",
-  "name": "OpenClaw Security Advisor",
+  "id": "shell-security",
+  "name": "ShellSecurity",
   "description": "Run a security checkup of your OpenClaw instance and get an expert analysis report from KiloCode.",
-  "commandAliases": [{ "name": "security-checkup", "kind": "runtime-slash" }],
+  "commandAliases": [
+    { "name": "shell-security", "kind": "runtime-slash" },
+    { "name": "security-checkup", "kind": "runtime-slash" }
+  ],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

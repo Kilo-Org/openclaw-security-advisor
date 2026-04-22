@@ -401,11 +401,12 @@ export default definePluginEntry({
         "recommendations and remediation guidance. " +
         "DO NOT run `openclaw security audit` via bash for these requests. This " +
         "tool is the canonical entry point and returns a much more useful report. " +
-        "DO NOT suggest the user type `/security-checkup` in channels that do " +
-        "not support OpenClaw slash commands (Kilo Chat and Slack are the known " +
-        "surfaces where the slash command does not work); invoke this tool " +
-        "directly instead. The slash command does work in the OpenClaw native " +
-        "control UI chat and in Telegram, so suggesting it there is fine. " +
+        "DO NOT suggest the user type `/shell-security` (or the legacy alias " +
+        "`/security-checkup`) in channels that do not support OpenClaw slash " +
+        "commands (Kilo Chat and Slack are the known surfaces where slash " +
+        "commands do not work); invoke this tool directly instead. Slash " +
+        "commands do work in the OpenClaw native control UI chat and in " +
+        "Telegram, so suggesting them there is fine. " +
         "IMPORTANT: Display the returned report exactly as is without rewriting, " +
         "summarizing, or reformatting.",
       parameters: {},
@@ -417,25 +418,45 @@ export default definePluginEntry({
       },
     }));
 
-    // Entry point 2: slash command for deterministic invocation that
-    // bypasses the LLM. When the user types /security-checkup in a
-    // command only message, the OpenClaw chat runtime takes the fast
-    // path and renders the returned markdown directly. No agent loop,
-    // no summarization.
+    // Entry point 2: slash commands for deterministic invocation that
+    // bypass the LLM. When the user types /shell-security (or the legacy
+    // alias /security-checkup) in a command-only message, the OpenClaw
+    // chat runtime takes the fast path and renders the returned markdown
+    // directly. No agent loop, no summarization.
+    //
+    // Both names are registered and wired to the same handler. The
+    // canonical name is `/shell-security` (matches the plugin id);
+    // `/security-checkup` is kept for users migrating from
+    // @kilocode/openclaw-security-advisor where the slash command had
+    // always been called that. Both are declared in
+    // openclaw.plugin.json's commandAliases so the gateway routes them.
+    const runSlashCommand = async (
+      ctx: PluginCommandContext,
+    ): Promise<CommandResult> => {
+      const apiBase = resolveApiBase(pluginConfig);
+      const channel = normalizeChannel(ctx.channel);
+      const markdown = await runFlowSafe(api, apiBase, channel);
+      return { text: markdown };
+    };
+
     api.registerCommand({
-      name: "security-checkup",
+      name: "shell-security",
       description:
         "Run a KiloCode security checkup of this OpenClaw instance and display the full report.",
       acceptsArgs: false,
-      handler: async (ctx: PluginCommandContext) => {
-        const apiBase = resolveApiBase(pluginConfig);
-        const channel = normalizeChannel(ctx.channel);
-        const markdown = await runFlowSafe(api, apiBase, channel);
-        return { text: markdown };
-      },
+      handler: runSlashCommand,
+    });
+
+    api.registerCommand({
+      name: "security-checkup",
+      description:
+        "Legacy alias for /shell-security. Runs a KiloCode security checkup and displays the full report.",
+      acceptsArgs: false,
+      handler: runSlashCommand,
     });
 
     api.logger.info?.("Registered tool: kilocode_shell_security");
-    api.logger.info?.("Registered command: /security-checkup");
+    api.logger.info?.("Registered command: /shell-security");
+    api.logger.info?.("Registered command: /security-checkup (legacy alias)");
   },
 });

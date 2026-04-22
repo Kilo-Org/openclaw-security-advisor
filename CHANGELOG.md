@@ -22,7 +22,13 @@ Functionally identical to `@kilocode/openclaw-security-advisor@0.1.4`.
 - Tool name: `kilocode_security_advisor` → `kilocode_shell_security`.
 - Install dir: `~/.openclaw/extensions/openclaw-security-advisor/` → `~/.openclaw/extensions/shell-security/`.
 - Secret file: `~/.openclaw/secrets/openclaw-security-advisor-auth-token` → `~/.openclaw/secrets/shell-security-auth-token`.
-- `/security-checkup` slash command name unchanged.
+
+### Added
+
+- New `/shell-security` slash command, the canonical name matching the
+  plugin id. The existing `/security-checkup` command is also registered
+  and works identically, so users migrating from the old plugin can keep
+  typing the command they're used to. Both are routed to the same handler.
 
 ### Migration
 

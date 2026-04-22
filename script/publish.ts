@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Publish script for @kilocode/openclaw-security-advisor.
+ * Publish script for @kilocode/shell-security.
  *
  * Reads the channel from KILO_CHANNEL ("latest" | "dev"); defaults to
  * "latest". Channel resolution must stay in sync with script/version.ts.
@@ -29,7 +29,7 @@ const raw = await Bun.file("package.json").text();
 const pkg = JSON.parse(raw);
 
 console.log(
-  `Publishing @kilocode/openclaw-security-advisor@${pkg.version} → channel: ${channel}`,
+  `Publishing @kilocode/shell-security@${pkg.version} → channel: ${channel}`,
 );
 
 const original = JSON.stringify(pkg, null, 2) + "\n";

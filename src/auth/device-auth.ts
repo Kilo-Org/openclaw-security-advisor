@@ -126,7 +126,7 @@ export async function pollDeviceAuth(
       // Transient network error. Log at debug level so it's visible
       // when investigating real failures but not noisy on the happy path.
       const message = err instanceof Error ? err.message : String(err);
-      logger?.debug?.(`security-advisor: poll transient error: ${message}`);
+      logger?.debug?.(`shell-security: poll transient error: ${message}`);
     }
   }
 

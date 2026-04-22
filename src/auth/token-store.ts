@@ -2,8 +2,8 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const PLUGIN_ID = "openclaw-security-advisor";
-const PROVIDER_ID = "kilocode_security_advisor";
+const PLUGIN_ID = "shell-security";
+const PROVIDER_ID = "kilocode_shell_security";
 
 /**
  * Minimal structural type for the parts of the OpenClaw plugin API this
