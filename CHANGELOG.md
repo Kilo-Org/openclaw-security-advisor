@@ -6,6 +6,24 @@ All notable changes to `@kilocode/shell-security` (formerly
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `getPublicIp()` now clears its 5-second abort timer on error paths as
+  well as success, so repeated checkups on a flaky network don't leak
+  dangling timeouts.
+- Device-auth poll requests now carry a per-request `AbortController`
+  (10s) so a hung HTTP call can no longer outlive the overall 30s
+  `POLL_TIMEOUT_MS` budget.
+- Expired plugin-managed auth tokens now fall through to the file-based
+  auto re-auth path (Path B) instead of returning the "update your
+  openclaw.json" message. `runShellSecurityFlow` inspects the raw
+  config via `isPluginManagedAuthToken()` and skips Path 0 when the
+  `authToken` is a SecretRef pointing at our own provider — that shape
+  is only ever written by `writeStoredToken()` after device auth, so
+  the plugin (not the user) owns recovery.
+
 ## [0.2.0]
 
 First release under the new `@kilocode/shell-security` name. The plugin

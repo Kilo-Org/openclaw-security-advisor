@@ -107,17 +107,18 @@ export function isValidIp(candidate: string): boolean {
  */
 export async function getPublicIp(): Promise<string | undefined> {
   const fetchFn: typeof fetch = resolveFetch() ?? globalThis.fetch;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5_000);
     const resp = await fetchFn("https://ifconfig.me/ip", {
       signal: controller.signal,
     });
-    clearTimeout(timeout);
     if (!resp.ok) return undefined;
     const text = (await resp.text()).trim();
     return isValidIp(text) ? text : undefined;
   } catch {
     return undefined;
+  } finally {
+    clearTimeout(timeout);
   }
 }

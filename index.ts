@@ -10,6 +10,7 @@ import {
   readPendingCode,
   writePendingCode,
   clearPendingCode,
+  isPluginManagedAuthToken,
   type PluginLogger,
   type PluginRuntimeConfig,
 } from "./src/auth/token-store.js";
@@ -166,8 +167,23 @@ async function runShellSecurityFlow(
   // going through device auth, and it respects the schema contract
   // documented in openclaw.plugin.json + README. Explicit user config
   // wins over everything else.
+  //
+  // Skip this path when the raw config shows a SecretRef aimed at our
+  // OWN provider — that shape is only written by writeStoredToken()
+  // after device auth, and the plugin's file-based auto re-auth path
+  // (Path B below) should own recovery in that case. Without this
+  // check, a plugin-managed token that expires would hit the
+  // "update your openclaw.json" message here instead of falling through
+  // to clear + redo device auth.
   const configToken = api.pluginConfig?.authToken;
-  if (typeof configToken === "string" && configToken.length > 0) {
+  const pluginManaged = isPluginManagedAuthToken(
+    api.runtime.config.loadConfig(),
+  );
+  if (
+    !pluginManaged &&
+    typeof configToken === "string" &&
+    configToken.length > 0
+  ) {
     try {
       return await doCheckup(api, apiBase, configToken, channel);
     } catch (err) {

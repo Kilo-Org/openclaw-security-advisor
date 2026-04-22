@@ -13,6 +13,13 @@ import type { PluginLogger } from "./token-store.js";
  */
 const POLL_TIMEOUT_MS = 30 * 1_000;
 const POLL_INTERVAL_MS = 3_000;
+/**
+ * Per-request deadline for a single poll HTTP call. Without this,
+ * a hung connection could outlive the overall POLL_TIMEOUT_MS budget,
+ * because the loop only re-checks the deadline between iterations.
+ * Capped below the overall budget so the loop stays interruptible.
+ */
+const POLL_REQUEST_TIMEOUT_MS = 10 * 1_000;
 
 type DeviceAuthInitResponse = {
   code: string;
@@ -110,8 +117,13 @@ export async function pollDeviceAuth(
 
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
+    const controller = new AbortController();
+    const requestTimeout = setTimeout(
+      () => controller.abort(),
+      POLL_REQUEST_TIMEOUT_MS,
+    );
     try {
-      const resp = await fetchFn(pollUrl);
+      const resp = await fetchFn(pollUrl, { signal: controller.signal });
       if (resp.status === 202) continue; // pending
       if (resp.status === 403) return { kind: "denied" };
       if (resp.status === 410) return { kind: "expired" };
@@ -123,10 +135,13 @@ export async function pollDeviceAuth(
         if (data.status === "expired") return { kind: "expired" };
       }
     } catch (err) {
-      // Transient network error. Log at debug level so it's visible
-      // when investigating real failures but not noisy on the happy path.
+      // Transient network error (including per-request abort due to a
+      // hung connection). Log at debug level so it's visible when
+      // investigating real failures but not noisy on the happy path.
       const message = err instanceof Error ? err.message : String(err);
       logger?.debug?.(`shell-security: poll transient error: ${message}`);
+    } finally {
+      clearTimeout(requestTimeout);
     }
   }
 

@@ -39,6 +39,53 @@ export function secretFilePath(): string {
   return join(homedir(), ".openclaw", "secrets", `${PLUGIN_ID}-auth-token`);
 }
 
+/**
+ * True when the raw openclaw.json has a SecretRef at
+ * `plugins.entries.shell-security.config.authToken` that points at
+ * OUR provider (`kilocode_shell_security`). That shape is only ever
+ * written by writeStoredToken() — a user configuring the plugin by
+ * hand would use a plain string or a SecretRef aimed at a different
+ * provider.
+ *
+ * The plugin can't tell from `api.pluginConfig.authToken` alone
+ * whether the resolved string came from a user-typed value or from
+ * OpenClaw resolving our own SecretRef. Callers use this helper to
+ * treat those cases differently (see `runShellSecurityFlow` in
+ * index.ts): plugin-managed tokens should auto re-auth on 401, but
+ * user-managed ones should surface an "update your openclaw.json"
+ * message.
+ */
+export function isPluginManagedAuthToken(config: unknown): boolean {
+  const root = (config && typeof config === "object" ? config : {}) as Record<
+    string,
+    unknown
+  >;
+  const plugins = (
+    root.plugins && typeof root.plugins === "object" ? root.plugins : {}
+  ) as Record<string, unknown>;
+  const entries = (
+    plugins.entries && typeof plugins.entries === "object"
+      ? plugins.entries
+      : {}
+  ) as Record<string, unknown>;
+  const entry = (
+    entries[PLUGIN_ID] && typeof entries[PLUGIN_ID] === "object"
+      ? entries[PLUGIN_ID]
+      : {}
+  ) as Record<string, unknown>;
+  const entryConfig = (
+    entry.config && typeof entry.config === "object" ? entry.config : {}
+  ) as Record<string, unknown>;
+  const authToken = entryConfig.authToken;
+  if (!authToken || typeof authToken !== "object") return false;
+  const ref = authToken as Record<string, unknown>;
+  return (
+    ref.source === "file" &&
+    ref.provider === PROVIDER_ID &&
+    typeof ref.id === "string"
+  );
+}
+
 function pendingCodeFilePath(): string {
   return join(homedir(), ".openclaw", "secrets", `${PLUGIN_ID}-pending-code`);
 }

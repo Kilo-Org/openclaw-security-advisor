@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { patchConfig } from "../src/auth/token-store";
+import { patchConfig, isPluginManagedAuthToken } from "../src/auth/token-store";
 
 const TEST_PATH = "/home/node/.openclaw/secrets/shell-security-auth-token";
 
@@ -122,5 +122,59 @@ describe("patchConfig", () => {
     expect(() => patchConfig(cfg, TEST_PATH)).not.toThrow();
     const next = patchConfig(cfg, TEST_PATH);
     expect(getAuthToken(next)).toBeDefined();
+  });
+});
+
+describe("isPluginManagedAuthToken", () => {
+  test("true for a SecretRef pointing at our own provider", () => {
+    const cfg = patchConfig({}, TEST_PATH);
+    expect(isPluginManagedAuthToken(cfg)).toBe(true);
+  });
+
+  test("false for a plain-string authToken (user-set)", () => {
+    const cfg = {
+      plugins: {
+        entries: {
+          "shell-security": { config: { authToken: "user-typed-string" } },
+        },
+      },
+    };
+    expect(isPluginManagedAuthToken(cfg)).toBe(false);
+  });
+
+  test("false for a SecretRef pointing at a different provider", () => {
+    const cfg = {
+      plugins: {
+        entries: {
+          "shell-security": {
+            config: {
+              authToken: {
+                source: "file",
+                provider: "some_other_provider",
+                id: "value",
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(isPluginManagedAuthToken(cfg)).toBe(false);
+  });
+
+  test("false when authToken is unset", () => {
+    expect(isPluginManagedAuthToken({})).toBe(false);
+    expect(isPluginManagedAuthToken({ plugins: {} })).toBe(false);
+    expect(
+      isPluginManagedAuthToken({
+        plugins: { entries: { "shell-security": { config: {} } } },
+      }),
+    ).toBe(false);
+  });
+
+  test("tolerates null/undefined/non-object config", () => {
+    expect(isPluginManagedAuthToken(null)).toBe(false);
+    expect(isPluginManagedAuthToken(undefined)).toBe(false);
+    expect(isPluginManagedAuthToken("string")).toBe(false);
+    expect(isPluginManagedAuthToken({ plugins: "not-an-object" })).toBe(false);
   });
 });
