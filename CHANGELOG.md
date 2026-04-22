@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dangling timeouts.
 - Device-auth poll requests now carry a per-request `AbortController`
   (10s) so a hung HTTP call can no longer outlive the overall 30s
-  `POLL_TIMEOUT_MS` budget.
+  `POLL_TIMEOUT_MS` budget. Sleep interval and request timeout are
+  both clamped to the remaining budget at each iteration, so
+  `pollDeviceAuth()` honors its advertised deadline even when a
+  fetch is started late in the cycle.
 - Expired plugin-managed auth tokens now fall through to the file-based
   auto re-auth path (Path B) instead of returning the "update your
   openclaw.json" message. `runShellSecurityFlow` inspects the raw

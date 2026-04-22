@@ -123,11 +123,21 @@ export async function pollDeviceAuth(
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
-    await sleep(POLL_INTERVAL_MS);
+    // Clamp sleep to remaining budget so we don't oversleep past the
+    // deadline and then start yet another fetch.
+    const sleepMs = Math.min(POLL_INTERVAL_MS, deadline - Date.now());
+    if (sleepMs > 0) await sleep(sleepMs);
+    // Same rationale for the per-request timeout: without this clamp,
+    // a fetch started near the end of the budget could run for the
+    // full POLL_REQUEST_TIMEOUT_MS and push us past the advertised
+    // overall deadline. Skip the iteration entirely when the remaining
+    // budget is zero or negative.
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     const controller = new AbortController();
     const requestTimeout = setTimeout(
       () => controller.abort(),
-      POLL_REQUEST_TIMEOUT_MS,
+      Math.min(POLL_REQUEST_TIMEOUT_MS, remaining),
     );
     try {
       const resp = await fetchFn(pollUrl, { signal: controller.signal });
