@@ -27,6 +27,16 @@ const MIGRATION_NOTICE: string =
   "```\n\n" +
   `You will need to approve the device auth flow once on the new plugin.\n` +
   `Subsequent checkups are identical to what you got before the rename.\n\n` +
+  `### If the install above fails\n\n` +
+  `If \`openclaw plugins install @kilocode/shell-security\` returns a 404 or\n` +
+  `\`package not found\` error, the new package has not landed on npm yet.\n` +
+  `Pin to the last real release of this plugin in the meantime:\n\n` +
+  "```\n" +
+  `openclaw plugins install @kilocode/openclaw-security-advisor@0.1.4\n` +
+  "```\n\n" +
+  `0.1.4 is the last non-stub release, still talks to the existing API, and\n` +
+  `will keep working. Retry the new install command later once the new\n` +
+  `package is published.\n\n` +
   `_pluginVersion: ${PLUGIN_VERSION}_`;
 
 type ToolResult = {
