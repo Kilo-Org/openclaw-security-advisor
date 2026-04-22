@@ -1,4 +1,4 @@
-# Releasing `@kilocode/openclaw-security-advisor`
+# Releasing `@kilocode/shell-security`
 
 Releases are cut from the `publish` workflow in GitHub Actions. There is no
 local release script, no automated release on push, and no changesets tool.
@@ -17,7 +17,7 @@ refs/heads/main — Changes must be made through a pull request`.
 >    ```bash
 >    git fetch origin --tags
 >    git ls-remote --tags origin "vX.Y.Z"                                 # tag?
->    gh release view "vX.Y.Z" --repo Kilo-Org/openclaw-security-advisor   # release?
+>    gh release view "vX.Y.Z" --repo Kilo-Org/shell-security   # release?
 >    ```
 >
 > 2. **If the tag exists and only the GitHub release is missing** (the
@@ -27,7 +27,7 @@ refs/heads/main — Changes must be made through a pull request`.
 >
 >    ```bash
 >    gh release create vX.Y.Z \
->      --repo Kilo-Org/openclaw-security-advisor \
+>      --repo Kilo-Org/shell-security \
 >      --title vX.Y.Z \
 >      --generate-notes \
 >      --verify-tag
@@ -72,25 +72,25 @@ Before clicking "Run workflow", confirm:
 - [ ] `CHANGELOG.md` has the changes you're about to ship listed under `## [Unreleased]`.
 - [ ] You know which channel you're targeting and which inputs you'll use (see paths below).
 - [ ] The tag for the resulting version does **not** already exist on
-      https://github.com/Kilo-Org/openclaw-security-advisor/releases.
+      https://github.com/Kilo-Org/shell-security/releases.
       The workflow fails fast if it does, but check first — it's cheaper
       to pick a different bump than to recover from a partial publish.
 
 ## Cutting a release
 
-1. Open https://github.com/Kilo-Org/openclaw-security-advisor/actions/workflows/publish.yml
+1. Open https://github.com/Kilo-Org/shell-security/actions/workflows/publish.yml
 2. Click **Run workflow** (top right).
 3. Fill in the inputs — see paths below.
 4. Click **Run workflow**.
 5. Wait for the job to finish (typically 2–3 minutes).
-6. Verify on [npm](https://www.npmjs.com/package/@kilocode/openclaw-security-advisor)
+6. Verify on [npm](https://www.npmjs.com/package/@kilocode/shell-security)
    that the new version shipped with the right dist-tag.
-7. Verify on the [GitHub releases page](https://github.com/Kilo-Org/openclaw-security-advisor/releases)
+7. Verify on the [GitHub releases page](https://github.com/Kilo-Org/shell-security/releases)
    that the tag and release were created.
 
 ### Stable releases (`channel=latest`)
 
-For public releases that go to `npm install @kilocode/openclaw-security-advisor`.
+For public releases that go to `npm install @kilocode/shell-security`.
 
 **Auto-bump (the common path):**
 
@@ -120,7 +120,7 @@ is rarely what you want for `1.0.0`).
 
 For internal dogfood builds. Versions look like `0.1.0-dev.1`,
 `0.1.0-dev.2`, etc. They publish to the `dev` npm dist-tag, so users get
-them with `npm install @kilocode/openclaw-security-advisor@dev`.
+them with `npm install @kilocode/shell-security@dev`.
 
 **Continue current dev cycle (the common path):**
 
@@ -234,7 +234,7 @@ the runner's resolved registry mirror yet.
 1. Wait 1–2 minutes, then verify manually from your machine:
 
    ```bash
-   npm view @kilocode/openclaw-security-advisor@VERSION version
+   npm view @kilocode/shell-security@VERSION version
    ```
 
 2. If the version IS on npm now, the publish was real. Manually create
@@ -259,13 +259,13 @@ but the GitHub releases page doesn't list the new version.
 ```bash
 # For stable releases:
 gh release create vX.Y.Z \
-  --repo Kilo-Org/openclaw-security-advisor \
+  --repo Kilo-Org/shell-security \
   --title "vX.Y.Z" \
   --generate-notes
 
 # For dev releases (note --prerelease):
 gh release create vX.Y.Z-dev.N \
-  --repo Kilo-Org/openclaw-security-advisor \
+  --repo Kilo-Org/shell-security \
   --title "vX.Y.Z-dev.N" \
   --generate-notes \
   --prerelease
@@ -323,7 +323,7 @@ Recovery steps:
 
    ```bash
    gh release create v1.2.4 \
-     --repo Kilo-Org/openclaw-security-advisor \
+     --repo Kilo-Org/shell-security \
      --title "v1.2.4" \
      --generate-notes
    # Add --prerelease for dev releases.
@@ -361,61 +361,64 @@ yours blocks them, allowlist `github-actions[bot]` for tag operations too.
 See [AGENTS.md](./AGENTS.md#branch-protection-and-the-release-commit) for the
 longer-term plan to replace the bot bypass with a dedicated GitHub App.
 
-## First-time releases (2026-04-15)
+## First publish of a newly-named npm package (OIDC bootstrap)
 
-Today's first cut is to the `dev` channel.
+**When this applies:** the very first publish of a package slug that
+doesn't exist on npm yet. Happens once at package creation, and again
+if the package is ever renamed (as when `@kilocode/openclaw-security-advisor`
+became `@kilocode/shell-security`).
 
-| Input     | Value         |
-| --------- | ------------- |
-| `channel` | `dev`         |
-| `bump`    | _(blank)_     |
-| `version` | `0.1.0-dev.1` |
+**The chicken-and-egg:** npm trusted publishers (OIDC) can only be
+configured on a package that already exists on the registry. Until the
+package slug exists, there's nothing to attach trust to. So the very
+first publish **must** use a classic npm token, not OIDC. The workflow's
+OIDC-based publish step will fail with `401 Unauthorized` or similar.
 
-The explicit version is required because auto-bump from a fresh repo
-(no prior tags) would resolve to `0.0.1-dev.1`, which doesn't match the
-intended starting point.
+### One-time manual bootstrap
 
-This publishes `@kilocode/openclaw-security-advisor@0.1.0-dev.1` to the
-`dev` dist-tag, creates the `v0.1.0-dev.1` tag (pointing at an orphan
-commit), and creates a prerelease GitHub release. `main` history is
-untouched.
+1. **Get an npm classic automation token** with publish permission for
+   the `@kilocode` scope (npmjs.com → avatar → Access Tokens →
+   Generate New Token → "Automation" or "Publish").
+2. **Publish locally** from a clean checkout of the main branch:
 
-Subsequent dev cuts can leave `version` blank — the workflow auto-bumps
-the dev counter (`0.1.0-dev.2`, `0.1.0-dev.3`, …) until you start a new
-dev cycle with a `bump` input.
+   ```bash
+   git checkout main && git pull
+   # Edit package.json: remove "private": true AND set "version" to the
+   # target, e.g. "0.2.0". Do NOT commit this — it's just for the local
+   # publish.
+   NPM_CONFIG_PROVENANCE=false npm publish --tag latest --access public \
+     --//registry.npmjs.org/:_authToken=$YOUR_CLASSIC_TOKEN
+   # Restore private: true and version locally; discard the edit.
+   ```
 
-### Known quirk: first-publish `latest` dist-tag
+   Provenance must be off on this step — provenance attestation requires
+   OIDC, which is exactly what we don't have yet.
 
-On the very first publish of a brand-new npm package, npm auto-assigns
-the `latest` dist-tag to that first version, **regardless of `--tag dev`
-on the publish command**. There is no way to prevent this from the
-publish side — it's npm's behavior for ensuring every package has a
-`latest` resolvable.
+3. **Verify on npm:** `npm view @kilocode/shell-security version` should
+   return the version you just published.
+4. **Create the git tag and GitHub release by hand** so future
+   `script/version.ts` runs see it:
 
-The publish workflow includes a `Reconcile latest dist-tag (dev publishes)`
-step that runs after every dev publish. It tries to repoint `latest` to
-the highest existing stable version. As long as no stable release has
-ever shipped (the entire pre-stable phase, e.g. while you're iterating
-on `0.1.0-dev.N`), the step has nothing to repoint to and emits a
-`::warning::` annotation on the workflow run. **This warning is expected
-and non-fatal** — it just documents that `latest` is still pointing at
-a dev version.
+   ```bash
+   git tag v0.2.0 -m "Release v0.2.0"
+   git push origin v0.2.0
+   gh release create v0.2.0 --title v0.2.0 --generate-notes --verify-tag
+   ```
 
-Once you ship the first stable release with `channel=latest`, that
-publish overwrites `latest` with the stable version naturally. From
-then on the reconciliation step stays quiet.
+### Configure OIDC Trusted Publishers (one-time)
 
-While the package is pre-stable, end users **must** install the dev
-channel explicitly:
+Once the package slug exists:
 
-```bash
-openclaw plugins install @kilocode/openclaw-security-advisor@dev
-# or
-npm install @kilocode/openclaw-security-advisor@dev
-```
+1. On npmjs.com, navigate to the package settings → **Trusted Publishers**.
+2. Add a GitHub Actions publisher:
+   - Repository owner: `Kilo-Org`
+   - Repository name: `shell-security`
+   - Workflow file: `publish.yml`
+   - Environment: _(leave blank)_
+3. Save.
 
-Plain `openclaw plugins install @kilocode/openclaw-security-advisor`
-(no `@dev`) will resolve to whatever `latest` currently points at, and
-since `latest` currently points at a prerelease, OpenClaw's prerelease
-guard will refuse the install with a confusing error. See
-[README.md](./README.md) for the user-facing install instructions.
+### Subsequent publishes go through the workflow
+
+From the second release onward, the normal `workflow_dispatch` flow in
+this document applies — the workflow authenticates to npm via OIDC,
+publishes with provenance, and handles git/GitHub-release side effects.

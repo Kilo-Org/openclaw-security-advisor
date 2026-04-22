@@ -1,6 +1,6 @@
 {
-  "name": "@kilocode/openclaw-security-advisor",
-  "version": "0.1.0",
+  "name": "@kilocode/shell-security",
+  "version": "0.2.0",
   "type": "module",
   "license": "MIT",
   "description": "Security analysis plugin for OpenClaw instances, powered by KiloCode",
@@ -8,6 +8,7 @@
     "openclaw",
     "kiloclaw",
     "kilocode",
+    "shell",
     "security"
   ],
   "//": "private: true is intentional — safety net against accidental `npm publish`. The publish script (script/publish.ts) strips this flag before packing and restores it after. Do NOT remove this without also having the publish pipeline in place.",
@@ -44,6 +45,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Kilo-Org/openclaw-security-advisor"
+    "url": "https://github.com/Kilo-Org/shell-security"
   }
 }

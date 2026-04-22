@@ -1,40 +1,101 @@
 # Changelog
 
-All notable changes to `@kilocode/openclaw-security-advisor` are documented here.
+All notable changes to `@kilocode/shell-security` (formerly
+`@kilocode/openclaw-security-advisor`) are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.5] - Migration stub
+### Fixed
 
-This release is a migration stub. The plugin has been renamed to `@kilocode/shell-security`. Installing or invoking `@kilocode/openclaw-security-advisor@0.1.5` no longer runs a security checkup. Both the `/security-checkup` slash command and the `kilocode_security_advisor` tool return a notice explaining how to install the new package.
+- `getPublicIp()` now clears its 5-second abort timer on error paths as
+  well as success, so repeated checkups on a flaky network don't leak
+  dangling timeouts.
+- Device-auth poll requests now carry a per-request `AbortController`
+  (10s) so a hung HTTP call can no longer outlive the overall 30s
+  `POLL_TIMEOUT_MS` budget. Sleep interval and request timeout are
+  both clamped to the remaining budget at each iteration, so
+  `pollDeviceAuth()` honors its advertised deadline even when a
+  fetch is started late in the cycle.
+- Expired plugin-managed auth tokens now fall through to the file-based
+  auto re-auth path (Path B) instead of returning the "update your
+  openclaw.json" message. `runShellSecurityFlow` inspects the raw
+  config via `isPluginManagedAuthToken()` and skips Path 0 when the
+  `authToken` is a SecretRef pointing at our own provider — that shape
+  is only ever written by `writeStoredToken()` after device auth, so
+  the plugin (not the user) owns recovery.
+- `pollDeviceAuth()` now `encodeURIComponent()`s the device-auth code
+  before interpolating it into the poll URL. Defense-in-depth against
+  a compromised or MITM-ed server returning a code with URL meta-chars
+  that would silently redirect polling to a different endpoint.
+- `submitAudit()` now validates that `report.markdown` is a string on
+  the success path. A malformed server response previously surfaced as
+  a confusing `TypeError: Cannot read properties of undefined (reading
+'markdown')`; it now throws a clear
+  "unexpected response shape" error.
 
 ### Changed
 
-- `index.ts` rewritten as a two-entry-point stub that returns the migration notice. The previous audit flow, auth flow, platform detection, client, and token-store modules are removed from this release (via `git rm` so the commit can be cleanly reverted on the renamed repo).
-- `openclaw.plugin.json` description and name reflect the deprecation; config schema removed (stub requires no config).
-- `README.md` replaced with a migration page.
+- Removed the unreachable `{ kind: "pending" }` variant from
+  `DeviceAuthPollResult`. `pollDeviceAuth()` loops internally and only
+  returns terminal states or `timeout`, so the `"pending"` branch in
+  `runShellSecurityFlow` was dead code and confused the contract.
+- Renumbered the ordered list in `src/platform.ts`'s module doc
+  comment. Signals 2–5 are now 1–4.
 
-### Removed
+## [0.2.0]
 
-- `src/audit.ts`, `src/client.ts`, `src/platform.ts`, `src/auth/device-auth.ts`, `src/auth/token-store.ts`.
-- Tests that exercised the removed modules (`audit`, `device-auth`, `token-store`, `platform`).
+First release under the new `@kilocode/shell-security` name. The plugin
+was renamed from `@kilocode/openclaw-security-advisor` to `ShellSecurity`
+to reflect a broader mission than any single agent-shell runtime.
+Functionally identical to `@kilocode/openclaw-security-advisor@0.1.4`.
 
-### Migration path for existing users
+### Changed
 
-1. `openclaw plugins install @kilocode/shell-security`
-2. `openclaw plugins enable shell-security`
-3. `openclaw gateway restart`
-4. `openclaw plugins uninstall openclaw-security-advisor`
-5. Run `/security-checkup` and complete device auth once on the new plugin.
+- npm package: `@kilocode/openclaw-security-advisor` → `@kilocode/shell-security`.
+- GitHub repo: `Kilo-Org/openclaw-security-advisor` → `Kilo-Org/shell-security` (old URLs redirect).
+- OpenClaw plugin id: `openclaw-security-advisor` → `shell-security`.
+- Plugin display name: `OpenClaw Security Advisor` → `ShellSecurity`.
+- Tool name: `kilocode_security_advisor` → `kilocode_shell_security`.
+- Install dir: `~/.openclaw/extensions/openclaw-security-advisor/` → `~/.openclaw/extensions/shell-security/`.
+- Secret file: `~/.openclaw/secrets/openclaw-security-advisor-auth-token` → `~/.openclaw/secrets/shell-security-auth-token`.
 
-The new plugin's runtime behavior is identical to 0.1.4 (including the `source.channel` forwarding added in 0.1.4). The rename is strictly a name change — no feature regressions.
+### Added
 
-Published with provenance attestation via npm OIDC trusted publishing; verify with `npm audit signatures`.
+- New `/shell-security` slash command, the canonical name matching the
+  plugin id. The existing `/security-checkup` command is also registered
+  and works identically, so users migrating from the old plugin can keep
+  typing the command they're used to. Both are routed to the same handler.
 
-## [0.1.4] - 2026-04-21
+### Migration
+
+Existing users of `@kilocode/openclaw-security-advisor` should run:
+
+```
+openclaw plugins install @kilocode/shell-security
+openclaw plugins enable shell-security
+openclaw gateway restart
+openclaw plugins uninstall openclaw-security-advisor
+```
+
+Device auth runs fresh on first use of the new plugin. The old plugin
+remains installable from npm (deprecated) but is no longer receiving
+updates.
+
+## [0.1.5] - 2026-04-22
+
+Migration stub. Final release under `@kilocode/openclaw-security-advisor`.
+
+- Replaced the audit flow with a short migration notice directing users to
+  `@kilocode/shell-security`. The `/security-checkup` slash command and
+  the `kilocode_security_advisor` tool both return the notice; no audit
+  runs, no network call, no auth flow.
+- npm package `@kilocode/openclaw-security-advisor` marked deprecated with
+  the same migration message.
+
+## [0.1.4] - 2026-04-20
 
 ### Added
 
@@ -83,5 +144,7 @@ Initial dev release.
 - Audit output validated with a Zod schema at the plugin boundary.
 - Public IP detection via `ifconfig.me` with IPv4/IPv6 validation.
 
-[Unreleased]: https://github.com/Kilo-Org/openclaw-security-advisor/compare/v0.1.0-dev.1...HEAD
-[0.1.0-dev.1]: https://github.com/Kilo-Org/openclaw-security-advisor/releases/tag/v0.1.0-dev.1
+[0.2.0]: https://github.com/Kilo-Org/shell-security/compare/v0.1.5...v0.2.0
+[0.1.5]: https://github.com/Kilo-Org/shell-security/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/Kilo-Org/shell-security/compare/v0.1.0-dev.1...v0.1.4
+[0.1.0-dev.1]: https://github.com/Kilo-Org/shell-security/releases/tag/v0.1.0-dev.1
