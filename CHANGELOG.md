@@ -23,6 +23,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `authToken` is a SecretRef pointing at our own provider — that shape
   is only ever written by `writeStoredToken()` after device auth, so
   the plugin (not the user) owns recovery.
+- `pollDeviceAuth()` now `encodeURIComponent()`s the device-auth code
+  before interpolating it into the poll URL. Defense-in-depth against
+  a compromised or MITM-ed server returning a code with URL meta-chars
+  that would silently redirect polling to a different endpoint.
+- `submitAudit()` now validates that `report.markdown` is a string on
+  the success path. A malformed server response previously surfaced as
+  a confusing `TypeError: Cannot read properties of undefined (reading
+'markdown')`; it now throws a clear
+  "unexpected response shape" error.
+
+### Changed
+
+- Removed the unreachable `{ kind: "pending" }` variant from
+  `DeviceAuthPollResult`. `pollDeviceAuth()` loops internally and only
+  returns terminal states or `timeout`, so the `"pending"` branch in
+  `runShellSecurityFlow` was dead code and confused the contract.
+- Renumbered the ordered list in `src/platform.ts`'s module doc
+  comment. Signals 2–5 are now 1–4.
 
 ## [0.2.0]
 

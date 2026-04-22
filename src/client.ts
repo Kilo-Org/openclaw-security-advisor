@@ -106,5 +106,16 @@ export async function submitAudit(
     );
   }
 
-  return (await resp.json()) as AnalyzeResponse;
+  const body = (await resp.json()) as AnalyzeResponse;
+  // Guard against an unexpected success shape (e.g. a partial rollout
+  // or a proxy rewriting the response). Without this, a missing
+  // `report.markdown` surfaces as a confusing
+  // `TypeError: Cannot read properties of undefined (reading 'markdown')`
+  // from the caller; this message is actionable.
+  if (typeof body?.report?.markdown !== "string") {
+    throw new Error(
+      "KiloCode analysis API returned an unexpected response shape.",
+    );
+  }
+  return body;
 }

@@ -13,15 +13,15 @@
  * circuits to "kiloclaw".
  *
  * Ordering (stopping at the first hit):
- *   2. openclaw.json has `plugins.entries["kiloclaw-customizer"].enabled`
+ *   1. openclaw.json has `plugins.entries["kiloclaw-customizer"].enabled`
  *      truthy — the kiloclaw controller writes this at boot for every
  *      kiloclaw instance, predating any of the env-var signals. Most
  *      durable universal signal today.
- *   3. openclaw.json `plugins.load.paths` contains the kiloclaw
+ *   2. openclaw.json `plugins.load.paths` contains the kiloclaw
  *      customizer install path — same writer, redundant cross-check.
- *   4. `process.env.KILOCLAW_SANDBOX_ID` is set — present on every
+ *   3. `process.env.KILOCLAW_SANDBOX_ID` is set — present on every
  *      kiloclaw instance since 2026-03-22.
- *   5. `process.env.KILOCODE_FEATURE === "kiloclaw"` — the original
+ *   4. `process.env.KILOCODE_FEATURE === "kiloclaw"` — the original
  *      env-var signal, present on kiloclaw since 2026-02-17.
  *
  * We intentionally do NOT add a loose `KILOCLAW_*`-prefix heuristic;

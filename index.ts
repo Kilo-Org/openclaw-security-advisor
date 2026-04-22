@@ -291,23 +291,14 @@ async function runShellSecurityFlow(
       return "Authentication code expired. Run the security checkup again to get a fresh code.";
     }
 
-    if (pollResult.kind === "timeout") {
-      // Our local poll deadline was hit while the server was still
-      // returning pending. The code may still be valid server-side.
-      // Leave the pending code in place so the next invocation picks up
-      // where we left off, and tell the user to retry once they've
-      // approved in the browser.
-      return (
-        "Still waiting for you to approve in the browser.\n\n" +
-        "Once you've approved, run the security checkup again and we'll pick up where we left off."
-      );
-    }
-    // pollResult.kind === "pending" (shouldn't reach here: pollDeviceAuth
-    // loops internally until a terminal state or timeout). Fall through
-    // to treat as timeout for safety.
+    // pollResult.kind === "timeout": our local poll deadline was hit
+    // while the server was still returning pending. The code may still
+    // be valid server-side. Leave the pending code in place so the
+    // next invocation picks up where we left off, and tell the user
+    // to retry once they've approved in the browser.
     return (
       "Still waiting for you to approve in the browser.\n\n" +
-      "Once you've approved, run the security checkup again."
+      "Once you've approved, run the security checkup again and we'll pick up where we left off."
     );
   }
 

@@ -50,10 +50,13 @@ export type DeviceAuthStartResult = {
  *             was still returning pending. The code may still be valid
  *             server-side; caller should NOT clear pending code so the
  *             next invocation can keep polling.
+ *
+ * `pending` is intentionally NOT in this union. `pollDeviceAuth()` loops
+ * internally and never returns the transient pending state — it only
+ * returns a terminal outcome or `timeout`.
  */
 export type DeviceAuthPollResult =
   | { kind: "approved"; token: string }
-  | { kind: "pending" }
   | { kind: "denied" }
   | { kind: "expired" }
   | { kind: "timeout" };
@@ -112,7 +115,11 @@ export async function pollDeviceAuth(
   logger?: PluginLogger,
 ): Promise<DeviceAuthPollResult> {
   const fetchFn: typeof fetch = resolveFetch() ?? globalThis.fetch;
-  const pollUrl = `${apiBase}/api/device-auth/codes/${code}`;
+  // Defense-in-depth: the code is a server-issued opaque string, but if
+  // the server ever returned one containing `/` or other URL meta-chars
+  // an unencoded concat would silently redirect the poll to a different
+  // endpoint under the same origin.
+  const pollUrl = `${apiBase}/api/device-auth/codes/${encodeURIComponent(code)}`;
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
