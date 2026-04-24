@@ -34,9 +34,16 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.channel }}-${{ 
 # id-token:write is required for npm provenance (SLSA attestation).
 # This workflow must run on GitHub-hosted runners (not Blacksmith) for
 # provenance to work — GitHub's OIDC token is only issued on their infra.
+#
+# contents: read is sufficient. Post-publish pushes to `main` are
+# authenticated by the kilo-maintainer App token (minted by the
+# setup-git-committer composite action), not by GITHUB_TOKEN. If a
+# future edit accidentally introduces a git/gh call that falls back
+# to GITHUB_TOKEN for a write, we want it to fail loudly here rather
+# than silently succeed with broader privilege.
 permissions:
   id-token: write
-  contents: write
+  contents: read
 
 jobs:
   publish:
@@ -136,11 +143,19 @@ jobs:
           echo "::warning::Could not verify $VERSION on the registry after 60s of polling. The publish step itself reported success; verification is informational only and the workflow will continue to the tag/release steps."
           exit 0
 
-      - name: Configure git identity
+      # Swap from the default `github-actions[bot]` identity to the
+      # `kilo-maintainer` GitHub App. Its installation token is what
+      # authorizes the post-publish push to `main` (the app is the sole
+      # principal on main's branch-ruleset bypass list). Using a
+      # purpose-built app keeps the bypass narrowly scoped to the
+      # publish flow instead of every workflow in this repo.
+      - name: Setup git committer (kilo-maintainer App)
+        id: committer
         if: steps.publish.outcome == 'success'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        uses: ./.github/actions/setup-git-committer
+        with:
+          kilo-maintainer-app-id: ${{ secrets.KILO_MAINTAINER_APP_ID }}
+          kilo-maintainer-app-secret: ${{ secrets.KILO_MAINTAINER_APP_SECRET }}
 
       # Atomic git/GH operations bundled into ONE step:
       # 1. Build the local commit (on main for stable, on detached HEAD for dev)
@@ -153,15 +168,25 @@ jobs:
       # All network operations have internal 3x retries with 5s backoff.
       # If anything fails after retries, the next step prints recovery
       # instructions.
+      # Explicit guard on BOTH publish AND committer succeeding. Without
+      # the committer half, a skipped committer step (e.g. someone edits
+      # its `if:` in the future) would leave `steps.committer.outputs.token`
+      # as an empty string — gh/git calls here would then fail with an
+      # opaque 401 instead of a clear "committer was skipped/failed"
+      # signal. Guard is cheap; diagnostic value is high.
       - name: Tag and release (post-publish)
         id: tag_and_release
-        if: steps.publish.outcome == 'success'
+        if: steps.publish.outcome == 'success' && steps.committer.outcome == 'success'
         env:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
           CHANNEL: ${{ steps.version.outputs.channel }}
           PREVIEW: ${{ steps.version.outputs.preview }}
-          GH_TOKEN: ${{ github.token }}
+          # Use the kilo-maintainer App token for both `git push` (via the
+          # origin remote URL rewritten by the committer step above) and
+          # `gh release create` (this env var). The default GITHUB_TOKEN
+          # would be refused by main's branch ruleset.
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
         run: |
           set -euo pipefail
 

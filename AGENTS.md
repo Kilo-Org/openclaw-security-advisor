@@ -78,33 +78,30 @@ For full step-by-step release instructions see [RELEASING.md](./RELEASING.md).
 
 ### Branch protection and the release commit
 
-The publish workflow pushes commits and/or tags to `main` as
-`github-actions[bot]`, using the default `GITHUB_TOKEN`.
+The publish workflow pushes commits and/or tags to `main` as the
+`kilo-maintainer` GitHub App (the same App used by the kilocode
+monorepo), via a short-lived installation token minted by
+`.github/actions/setup-git-committer/action.yml`.
 
 - **Stable releases** (`channel=latest`) commit the `package.json` version
   bump back to `main` AND push the tag.
 - **Dev releases** (`channel=dev`) push only the tag (pointing at an
   orphan commit). `main` history stays clean.
 
-Once branch protection / repository rulesets are enabled on `main`, the
-`github-actions[bot]` actor **must be added to the ruleset's bypass actors
-list**, otherwise stable releases will fail at the push step _after_
-`npm publish` has already succeeded — leaving npm and GitHub out of sync.
-Dev releases are less affected (no commit to `main`) but still need tag
-push to be allowed, which most rulesets permit by default.
+`main`'s branch ruleset bypass list includes **only** the
+`kilo-maintainer` App — not the generic `github-actions[bot]`. This is
+deliberate: it keeps the bypass narrowly scoped to the publish flow
+(the one place that holds the App's private-key secret) instead of
+granting every workflow in the repo push-to-main capability.
 
-This is a stopgap. The long-term plan is to adopt the same `kilo-maintainer`
-GitHub App pattern used by the kilocode monorepo
-(`kilocode/.github/actions/setup-git-committer/action.yml`), which signs
-release commits as the App and has explicit bypass permissions. That
-migration requires Kilo-Org admin access to install the App on this repo
-and configure secrets, so it's deferred until an org admin is available.
+Release commits:
 
-Until then, release commits:
+- are authored by `kilo-maintainer[bot]`
+- are web-signed by GitHub (the App token commits go through the REST
+  API signing path, not a local git signature)
+- bypass branch protection via the App's ruleset bypass
 
-- are authored by `github-actions[bot]`
-- are unsigned
-- bypass branch protection via the ruleset allowlist (not via an App token)
+Full setup and troubleshooting in [RELEASING.md](./RELEASING.md#branch-protection).
 
 ## Code layout
 

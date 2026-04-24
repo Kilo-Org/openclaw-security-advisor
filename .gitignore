@@ -2,6 +2,14 @@ node_modules/
 dist/
 *.tgz
 
+# Local release/bootstrap scripts that may contain npm classic tokens.
+# Never commit these. The real release path is `bun script/publish.ts`
+# driven by the GitHub Actions workflow (OIDC); any local `release.sh`
+# or `publish-local.sh` is a one-off bootstrap artifact.
+release.sh
+release-*.sh
+publish-local.sh
+
 # Local editor / agent state. Contributors using Claude Code, Cursor, or
 # similar tools get a per-machine settings file under .claude/. Ignore
 # the whole directory so nobody accidentally commits their local prefs

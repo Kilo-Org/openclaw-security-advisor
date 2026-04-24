@@ -1,0 +1,67 @@
+name: "Setup Git Committer"
+description: |
+  Exchange the kilo-maintainer GitHub App credentials for a short-lived
+  installation token, configure git to commit as `kilo-maintainer[bot]`,
+  and rewrite the origin remote so subsequent `git push` calls from the
+  workflow use the App token.
+
+  This is what lets the publish workflow push release commits to `main`
+  on a repo whose branch ruleset restricts direct pushes: the ruleset is
+  configured to bypass the `kilo-maintainer` App specifically, not the
+  generic `github-actions[bot]` identity every workflow shares.
+
+  Mirror of Kilo-Org/kilocode's action of the same name so the two repos
+  stay in sync on the committer identity.
+inputs:
+  kilo-maintainer-app-id:
+    description: "Kilo Maintainer GitHub App ID (numeric)"
+    required: true
+  kilo-maintainer-app-secret:
+    description: "Kilo Maintainer GitHub App private key (full PEM)"
+    required: true
+outputs:
+  token:
+    description: "Short-lived installation token for the kilo-maintainer App"
+    value: ${{ steps.apptoken.outputs.token }}
+  app-slug:
+    description: "App slug (expected: kilo-maintainer)"
+    value: ${{ steps.apptoken.outputs.app-slug }}
+runs:
+  using: "composite"
+  steps:
+    - name: Create app token
+      id: apptoken
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ inputs['kilo-maintainer-app-id'] }}
+        private-key: ${{ inputs['kilo-maintainer-app-secret'] }}
+        owner: ${{ github.repository_owner }}
+        # Scope the minted installation token to the current repo
+        # only, even when the kilo-maintainer App is installed on
+        # multiple repos in the org. Without this, the token would
+        # carry the App's full installation scope (e.g. both
+        # shell-security and kilocode) and a compromised workflow
+        # could push to unrelated repos.
+        repositories: ${{ github.event.repository.name }}
+
+    - name: Configure git user
+      shell: bash
+      run: |
+        slug="${{ steps.apptoken.outputs.app-slug }}"
+        git config --global user.name "${slug}[bot]"
+        git config --global user.email "${slug}[bot]@users.noreply.github.com"
+
+    # actions/checkout@v4 leaves an `http.https://github.com/.extraheader`
+    # config entry pointing at its own (GITHUB_TOKEN) authorization. Any
+    # `git push` would still use that header unless we drop it here —
+    # otherwise the App token we embed in the remote URL below would be
+    # shadowed and the bypass list wouldn't apply.
+    - name: Clear checkout auth
+      shell: bash
+      run: |
+        git config --local --unset-all http.https://github.com/.extraheader || true
+
+    - name: Configure git remote
+      shell: bash
+      run: |
+        git remote set-url origin https://x-access-token:${{ steps.apptoken.outputs.token }}@github.com/${{ github.repository }}
