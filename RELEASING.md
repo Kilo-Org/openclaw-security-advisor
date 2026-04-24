@@ -4,54 +4,22 @@ Releases are cut from the `publish` workflow in GitHub Actions. There is no
 local release script, no automated release on push, and no changesets tool.
 Every release is a manual `workflow_dispatch`.
 
-> ⚠️ **Current state (as of 2026-04-17):** `github-actions[bot]` is not on
-> the `main` branch ruleset's bypass list. As a result, **every stable
-> (`channel=latest`) publish run will fail at the "Tag and release
-> (post-publish)" step** with `GH013: Repository rule violations found for
-refs/heads/main — Changes must be made through a pull request`.
+> **Committer identity:** post-publish commits to `main` are made by the
+> `kilo-maintainer` GitHub App (not the generic `github-actions[bot]`),
+> using a short-lived installation token minted inside the workflow. The
+> app is the sole principal on `main`'s branch-ruleset bypass list — see
+> [Branch protection](#branch-protection). If you see a release commit
+> authored by anyone else, something's wrong; stop and investigate.
 >
-> **Recovery after a failed stable run:**
+> **Required secrets** (already configured, documented here for
+> disaster-recovery reference):
 >
-> 1. Check what actually landed on origin:
+> - `KILO_MAINTAINER_APP_ID` — the numeric App ID.
+> - `KILO_MAINTAINER_APP_SECRET` — the App's private key (full PEM).
 >
->    ```bash
->    git fetch origin --tags
->    git ls-remote --tags origin "vX.Y.Z"                                 # tag?
->    gh release view "vX.Y.Z" --repo Kilo-Org/shell-security   # release?
->    ```
->
-> 2. **If the tag exists and only the GitHub release is missing** (the
->    typical outcome — tags aren't covered by the branch ruleset and
->    usually land even when the `main` push is rejected), create the
->    release against the existing tag:
->
->    ```bash
->    gh release create vX.Y.Z \
->      --repo Kilo-Org/shell-security \
->      --title vX.Y.Z \
->      --generate-notes \
->      --verify-tag
->    ```
->
->    `--verify-tag` makes `gh` fail fast if the tag is missing instead of
->    silently creating a new one at current `main` HEAD. That's the whole
->    recovery — no other steps needed.
->
-> 3. **If the tag is also missing** (rare), follow
->    [Scenario 4](#scenario-4-publish-succeeded-but-commit--tag-push-failed)
->    below. It rebuilds the release commit locally (you can't tag the
->    runner-side SHA; that commit lived only in the Actions runner),
->    tags, pushes, then creates the release. The workflow's
->    `Print recovery instructions on partial failure` step also prints
->    this full sequence inline in the failed run's logs for copy-paste.
->
-> After step 2 (common case), `main`'s `package.json` will be one version
-> behind. Leave it alone — `script/version.ts` computes the next version
-> from git tags, not from `package.json`, so the drift is cosmetic.
->
-> This banner can be removed once the ruleset bypass is configured (see
-> [Branch protection](#branch-protection)) or the workflow is refactored
-> so stable publishes don't push to `main` at all.
+> Both are consumed by `.github/actions/setup-git-committer/action.yml`.
+> The same pair is used in `Kilo-Org/kilocode`; regenerating the
+> private key there would require updating it here too.
 
 ## Channels
 
@@ -282,9 +250,9 @@ This is the most dangerous failure mode. Symptom: `npm publish` succeeds
 step passes, but the workflow fails at the **"Commit version bump (stable
 only)"** or **"Tag release"** step with a `remote rejected` error.
 
-Most common cause: branch protection on `main` does not include
-`github-actions[bot]` in the bypass actors list. See **Branch protection**
-below.
+Most common cause: `main`'s branch ruleset bypass list does not include
+the `kilo-maintainer` GitHub App, or the App's installation token is
+expired/revoked. See **Branch protection** below.
 
 Recovery steps:
 
@@ -329,37 +297,38 @@ Recovery steps:
    # Add --prerelease for dev releases.
    ```
 
-5. Fix the underlying cause (branch protection bypass) before the next release.
+5. Verify the App token, App installation, and bypass list are still
+   valid (see **Branch protection** below) before the next release.
 
 ## Branch protection
 
-When branch protection / rulesets are enabled on `main`, the
-`github-actions[bot]` actor **must** be added to the ruleset's bypass actors
-list. Without it, the publish workflow's stable-channel commit step fails,
-triggering the recovery procedure above.
+The `Main branch protection` ruleset on `main` (Settings → Rules →
+Rulesets) restricts direct pushes. The publish workflow bypasses this
+restriction by authenticating as the `kilo-maintainer` GitHub App rather
+than the default `github-actions[bot]`. Requirements for this to work:
 
-> **Status today:** the `Main branch protection` ruleset on this repo
-> (`Settings → Rules → Rulesets`) is active but does NOT include
-> `github-actions[bot]` as a bypass actor. This is why the banner at the
-> top of this document describes the manual recovery step as expected
-> behavior for every stable publish. Two viable durable fixes, pick one:
->
-> 1. **Add the bot to the bypass list** (Settings → Rules → the ruleset
->    → Bypass list → add the `github-actions` app with bypass mode
->    `Always`). Fastest; keeps the current workflow unchanged.
-> 2. **Refactor the stable publish path** to match the dev-channel flow:
->    detach HEAD, commit, tag, push only the tag — never touch `main`.
->    Keeps the ruleset strict with no carve-outs; the trade-off is that
->    `main`'s `package.json` version drifts behind the latest release
->    (cosmetic only, since `version.ts` reads from tags).
+1. **`kilo-maintainer` App is installed on `Kilo-Org/shell-security`.**
+   Verify at Settings → GitHub Apps → Installed GitHub Apps. The App is
+   also installed on `Kilo-Org/kilocode`; same App, same credentials.
+2. **Two secrets exist in this repo** (or at org level, exposed to this
+   repo): `KILO_MAINTAINER_APP_ID` (numeric) and `KILO_MAINTAINER_APP_SECRET`
+   (full PEM private key). Regenerating the App's private key requires
+   updating `KILO_MAINTAINER_APP_SECRET` in every repo that uses it.
+3. **Bypass actor configured on the ruleset.** Settings → Rules →
+   `Main branch protection` → **Bypass list** must include the
+   `kilo-maintainer` App with bypass mode `Always`. Do NOT add the
+   generic `github-actions` app — that would grant bypass to every
+   workflow in the repo; the point of using the dedicated app is
+   to keep the bypass narrowly scoped to the publish flow.
 
-Dev-channel publishes don't push to `main` (only push the tag), so they're
-less affected by branch protection on `main` itself. The tag push still
-needs to be allowed — most rulesets allow tag pushes by default, but if
-yours blocks them, allowlist `github-actions[bot]` for tag operations too.
+If a stable publish fails at the push step and all three above are in
+place, check the workflow run's `Setup git committer` step output — a
+revoked installation or an expired/rotated private key would fail there
+rather than at the push.
 
-See [AGENTS.md](./AGENTS.md#branch-protection-and-the-release-commit) for the
-longer-term plan to replace the bot bypass with a dedicated GitHub App.
+Dev-channel publishes don't touch `main` (they push only the tag via an
+orphan commit), so they don't depend on item 3 above — but they still
+need items 1 and 2 for the same token minting flow.
 
 ## First publish of a newly-named npm package (OIDC bootstrap)
 
