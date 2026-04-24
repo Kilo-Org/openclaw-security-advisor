@@ -161,9 +161,15 @@ jobs:
       # All network operations have internal 3x retries with 5s backoff.
       # If anything fails after retries, the next step prints recovery
       # instructions.
+      # Explicit guard on BOTH publish AND committer succeeding. Without
+      # the committer half, a skipped committer step (e.g. someone edits
+      # its `if:` in the future) would leave `steps.committer.outputs.token`
+      # as an empty string — gh/git calls here would then fail with an
+      # opaque 401 instead of a clear "committer was skipped/failed"
+      # signal. Guard is cheap; diagnostic value is high.
       - name: Tag and release (post-publish)
         id: tag_and_release
-        if: steps.publish.outcome == 'success'
+        if: steps.publish.outcome == 'success' && steps.committer.outcome == 'success'
         env:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
